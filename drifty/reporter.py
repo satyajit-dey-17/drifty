@@ -14,10 +14,9 @@ from typing import TYPE_CHECKING
 from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
-from rich.table import Table
 from rich.text import Text
 
-from drifty.scorer import severity_color, severity_emoji, severity_badge, SEVERITY_ORDER
+from drifty.scorer import SEVERITY_ORDER, severity_badge, severity_color, severity_emoji
 
 if TYPE_CHECKING:
     from drifty.scanner import DriftFinding
@@ -31,7 +30,7 @@ err_console = Console(stderr=True)
 # ---------------------------------------------------------------------------
 
 def render(
-    findings: list["DriftFinding"],
+    findings: list[DriftFinding],
     output_format: str = "terminal",
     workspace: Path = Path("."),
 ) -> None:
@@ -50,7 +49,7 @@ def render(
 # Terminal renderer (Rich)
 # ---------------------------------------------------------------------------
 
-def _render_terminal(findings: list["DriftFinding"], workspace: Path) -> None:
+def _render_terminal(findings: list[DriftFinding], workspace: Path) -> None:
     console.print()
     console.print(
         "[bold cyan]🔍 drifty — Terraform Drift Intelligence[/bold cyan]"
@@ -76,7 +75,8 @@ def _render_terminal(findings: list["DriftFinding"], workspace: Path) -> None:
 
     # Summary panel
     counts = _count_by_severity(sorted_findings)
-    summary_parts = [f"[bold]{len(sorted_findings)} drift{'s' if len(sorted_findings) != 1 else ''} detected[/bold]"]
+    n = len(sorted_findings)
+    summary_parts = [f"[bold]{n} drift{'s' if n != 1 else ''} detected[/bold]"]
     if counts.get("critical"):
         summary_parts.append(f"[bold red]{counts['critical']} Critical[/bold red]")
     if counts.get("high"):
@@ -108,7 +108,7 @@ def _render_terminal(findings: list["DriftFinding"], workspace: Path) -> None:
     console.print()
 
 
-def _render_finding_block(finding: "DriftFinding") -> None:
+def _render_finding_block(finding: DriftFinding) -> None:
     """Render a single DriftFinding as a color-coded terminal block."""
     emoji = severity_emoji(finding.severity)
     badge = severity_badge(finding.severity)
@@ -139,10 +139,8 @@ def _render_finding_block(finding: "DriftFinding") -> None:
         console.print(f"   [dim]When:[/dim]     {_format_timestamp(finding.attributed_at)}")
         console.print(f"   [dim]Action:[/dim]   [magenta]{finding.attributed_action}[/magenta]")
     else:
-        console.print(
-            "   [dim]Who:[/dim]      "
-            "[dim italic]attribution unavailable (event outside 90-day CloudTrail window)[/dim italic]"
-        )
+        no_attr = "attribution unavailable (event outside 90-day CloudTrail window)"
+        console.print(f"   [dim]Who:[/dim]      [dim italic]{no_attr}[/dim italic]")
 
     # Remediation hint
     if finding.remediation_hint:
@@ -157,7 +155,7 @@ def _render_finding_block(finding: "DriftFinding") -> None:
 # JSON renderer
 # ---------------------------------------------------------------------------
 
-def _render_json(findings: list["DriftFinding"]) -> None:
+def _render_json(findings: list[DriftFinding]) -> None:
     """
     Emit structured JSON to stdout. Suitable for CI/CD piping.
     Format: {"scan_time": ..., "total": N, "findings": [...]}
@@ -171,7 +169,7 @@ def _render_json(findings: list["DriftFinding"]) -> None:
     print(json.dumps(output, indent=2, default=str))
 
 
-def _finding_to_dict(finding: "DriftFinding") -> dict:
+def _finding_to_dict(finding: DriftFinding) -> dict:
     return {
         "resource_type": finding.resource_type,
         "resource_name": finding.resource_name,
@@ -191,7 +189,7 @@ def _finding_to_dict(finding: "DriftFinding") -> dict:
 # Markdown renderer
 # ---------------------------------------------------------------------------
 
-def _render_markdown(findings: list["DriftFinding"], workspace: Path) -> None:
+def _render_markdown(findings: list[DriftFinding], workspace: Path) -> None:
     """
     Render findings as GitHub-flavored Markdown to stdout.
     Suitable for Confluence, Notion, or PR comments.
@@ -275,7 +273,7 @@ def _render_markdown(findings: list["DriftFinding"], workspace: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def generate_report(
-    findings: list["DriftFinding"],
+    findings: list[DriftFinding],
     format: str = "markdown",
     output_file: Path | None = None,
     workspace: Path = Path("."),
@@ -301,7 +299,7 @@ def generate_report(
     )
 
 
-def _capture_json(findings: list["DriftFinding"]) -> str:
+def _capture_json(findings: list[DriftFinding]) -> str:
     output = {
         "scan_time": datetime.now(tz=timezone.utc).isoformat(),
         "total": len(findings),
@@ -311,7 +309,7 @@ def _capture_json(findings: list["DriftFinding"]) -> str:
     return json.dumps(output, indent=2, default=str)
 
 
-def _capture_markdown(findings: list["DriftFinding"], workspace: Path) -> str:
+def _capture_markdown(findings: list[DriftFinding], workspace: Path) -> str:
     import io
     from contextlib import redirect_stdout
     buf = io.StringIO()
@@ -324,7 +322,7 @@ def _capture_markdown(findings: list["DriftFinding"], workspace: Path) -> str:
 # Utility helpers
 # ---------------------------------------------------------------------------
 
-def _count_by_severity(findings: list["DriftFinding"]) -> dict[str, int]:
+def _count_by_severity(findings: list[DriftFinding]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for f in findings:
         counts[f.severity] = counts.get(f.severity, 0) + 1

@@ -199,13 +199,13 @@ def _coerce_value(key: str, value: str) -> Any:
             days = int(value)
             if not (1 <= days <= 90):
                 console.print(
-                    f"[red]✗ [bold]cloudtrail_lookback_days[/bold] must be between 1 and 90.[/red]"
+                    "[red]✗ [bold]cloudtrail_lookback_days[/bold] must be between 1 and 90.[/red]"
                 )
                 return None
             return days
         except ValueError:
             console.print(
-                f"[red]✗ [bold]cloudtrail_lookback_days[/bold] must be an integer.[/red]"
+                "[red]✗ [bold]cloudtrail_lookback_days[/bold] must be an integer.[/red]"
             )
             return None
 
