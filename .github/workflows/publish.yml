@@ -4,7 +4,6 @@ on:
   release:
     types: [published]
 
-  # Allow manual trigger for testing the publish pipeline
   workflow_dispatch:
     inputs:
       dry_run:
@@ -50,13 +49,14 @@ jobs:
       - name: Run tests before publishing
         run: poetry run pytest -v
 
+      - name: Clean dist before build
+        run: rm -rf dist/
+
       - name: Build package
         run: poetry build
 
       - name: Inspect build artifacts
-        run: |
-          ls -lh dist/
-          poetry run python -c "import zipfile, sys; zf = zipfile.ZipFile('$(ls dist/*.whl)'); print('\n'.join(zf.namelist()))"
+        run: ls -lh dist/
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -75,7 +75,7 @@ jobs:
       url: https://pypi.org/project/drifty/
 
     permissions:
-      id-token: write  # Required for PyPI Trusted Publisher (no API key needed)
+      id-token: write
 
     steps:
       - name: Download build artifacts
