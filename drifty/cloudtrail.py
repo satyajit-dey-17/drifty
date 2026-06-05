@@ -17,9 +17,8 @@ CloudTrail LookupEvents constraints:
 """
 from __future__ import annotations
 
-import re
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import boto3
 import botocore.exceptions
@@ -71,10 +70,10 @@ RESOURCE_EVENT_PREFIXES: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 
 def attribute_finding(
-    finding: "DriftFinding",
+    finding: DriftFinding,
     profile: str = "default",
     lookback_days: int = 90,
-) -> Optional[dict]:
+) -> dict | None:
     """
     Query CloudTrail for the most recent API event touching the given resource.
 
@@ -125,7 +124,7 @@ def _lookup_event(
     start_time: datetime,
     end_time: datetime,
     resource_type: str,
-) -> Optional[dict]:
+) -> dict | None:
     """
     Call CloudTrail LookupEvents with a ResourceName filter.
     Pages through results and returns the most recent matching event.
@@ -179,8 +178,10 @@ def _lookup_event(
         )
         return None
     except botocore.exceptions.EndpointResolutionError:
-        console.print("[yellow]⚠ Could not reach CloudTrail endpoint. Check AWS credentials.[/yellow]")
-        return None
+        console.print(
+            "[yellow]⚠ Could not reach CloudTrail endpoint. "
+            "Check AWS credentials.[/yellow]"
+        )
     except Exception as e:
         console.print(f"[yellow]⚠ Unexpected CloudTrail error: {e}[/yellow]")
         return None
@@ -269,7 +270,7 @@ def _is_automated_service_event(principal: str) -> bool:
     return any(pattern in principal for pattern in automated_patterns)
 
 
-def format_attribution(finding: "DriftFinding") -> str:
+def format_attribution(finding: DriftFinding) -> str:
     """
     Format attribution fields from a DriftFinding into a human-readable string.
     Used by reporter.py.

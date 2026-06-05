@@ -11,10 +11,8 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -33,10 +31,10 @@ class DriftFinding:
     resource_id: str                            # e.g. "sg-0abc1234"
     changed_attributes: list[dict]              # [{attribute, before, after}, ...]
     severity: str = "low"                       # filled in by scorer.py
-    attributed_to: Optional[str] = None         # IAM principal
-    attributed_at: Optional[str] = None         # ISO timestamp
-    attributed_action: Optional[str] = None     # AWS API action
-    remediation_hint: Optional[str] = None      # terraform import or HCL fix
+    attributed_to: str | None = None         # IAM principal
+    attributed_at: str | None = None         # ISO timestamp
+    attributed_action: str | None = None     # AWS API action
+    remediation_hint: str | None = None      # terraform import or HCL fix
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +45,7 @@ def run_scan(
     workspace: Path,
     profile: str = "default",
     with_attribution: bool = False,
-    severity_filter: Optional[str] = None,
+    severity_filter: str | None = None,
 ) -> list[DriftFinding]:
     """
     Full scan pipeline:

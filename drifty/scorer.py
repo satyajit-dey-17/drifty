@@ -14,7 +14,6 @@ Users can override per-resource severity via .drifty/config.yaml:
 """
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -126,7 +125,7 @@ _TAG_ONLY_DOWNGRADE_TYPES = frozenset({
 })
 
 
-def _is_tag_only_change(finding: "DriftFinding") -> bool:
+def _is_tag_only_change(finding: DriftFinding) -> bool:
     """
     Return True if ALL changed attributes are tag/label fields.
     e.g. only tags.LastModified changed → tag-only drift.
@@ -144,7 +143,7 @@ def _is_tag_only_change(finding: "DriftFinding") -> bool:
 # Public API
 # ---------------------------------------------------------------------------
 
-def score(finding: "DriftFinding", config_overrides: dict[str, str] | None = None) -> str:
+def score(finding: DriftFinding, config_overrides: dict[str, str] | None = None) -> str:
     """
     Return a severity string for a DriftFinding.
 

@@ -4,19 +4,14 @@ Entry point for all CLI commands via Typer.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
 
 from drifty import __version__
 from drifty.config import (
     init_workspace,
-    load_config,
     set_config_value,
     show_config,
 )
@@ -55,7 +50,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "--version",
         "-v",
@@ -123,7 +118,7 @@ def cmd_scan(
         help="Enable CloudTrail attribution (who caused each drift).",
         is_flag=True,
     ),
-    severity: Optional[str] = typer.Option(
+    severity: str | None = typer.Option(
         None,
         "--severity",
         "-s",
@@ -135,7 +130,7 @@ def cmd_scan(
         "-o",
         help="Output format: terminal (default) | json | markdown.",
     ),
-    notify: Optional[str] = typer.Option(
+    notify: str | None = typer.Option(
         None,
         "--notify",
         "-n",
@@ -187,8 +182,8 @@ def cmd_scan(
     # STUB: real logic wired in Step 4 (scanner), Step 5 (scorer),
     #       Step 6 (cloudtrail), Step 7 (reporter)
     # -----------------------------------------------------------------------
-    from drifty.scanner import run_scan
     from drifty.reporter import render
+    from drifty.scanner import run_scan
 
     findings = run_scan(
         workspace=workspace,
@@ -221,7 +216,7 @@ def cmd_report(
         "markdown", "--format", "-f",
         help="Report format: markdown | json.",
     ),
-    output_file: Optional[Path] = typer.Option(
+    output_file: Path | None = typer.Option(
         None, "--out",
         help="File path to write report to. Defaults to ./drifty-report-YYYY-MM-DD.md",
     ),
@@ -243,8 +238,8 @@ def cmd_report(
         )
         raise typer.Exit(code=1)
 
-    from drifty.scanner import run_scan
     from drifty.reporter import generate_report
+    from drifty.scanner import run_scan
 
     findings = run_scan(workspace=workspace, profile="default")
     generate_report(findings, format=format, output_file=output_file, workspace=workspace)
