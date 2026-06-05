@@ -7,6 +7,7 @@ Each line is a message object with a `type` field. We care about:
   - type == "planned_change"     → used to cross-check drift (ignored for now)
   - type == "diagnostic"         → errors/warnings from terraform itself
 """
+
 from __future__ import annotations
 
 import json
@@ -24,22 +25,24 @@ err_console = Console(stderr=True)
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DriftFinding:
-    resource_type: str                          # e.g. "aws_security_group"
-    resource_name: str                          # e.g. "main"
-    resource_id: str                            # e.g. "sg-0abc1234"
-    changed_attributes: list[dict]              # [{attribute, before, after}, ...]
-    severity: str = "low"                       # filled in by scorer.py
-    attributed_to: str | None = None         # IAM principal
-    attributed_at: str | None = None         # ISO timestamp
-    attributed_action: str | None = None     # AWS API action
-    remediation_hint: str | None = None      # terraform import or HCL fix
+    resource_type: str  # e.g. "aws_security_group"
+    resource_name: str  # e.g. "main"
+    resource_id: str  # e.g. "sg-0abc1234"
+    changed_attributes: list[dict]  # [{attribute, before, after}, ...]
+    severity: str = "low"  # filled in by scorer.py
+    attributed_to: str | None = None  # IAM principal
+    attributed_at: str | None = None  # ISO timestamp
+    attributed_action: str | None = None  # AWS API action
+    remediation_hint: str | None = None  # terraform import or HCL fix
 
 
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def run_scan(
     workspace: Path,
@@ -76,12 +79,14 @@ def run_scan(
 
     # Score every finding
     from drifty.scorer import score
+
     for finding in findings:
         finding.severity = score(finding)
 
     # CloudTrail attribution
     if with_attribution:
         from drifty.cloudtrail import attribute_finding
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[bold cyan]Looking up CloudTrail events ...[/bold cyan]"),
@@ -102,10 +107,7 @@ def run_scan(
     if severity_filter:
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         threshold = severity_order.get(severity_filter, 3)
-        findings = [
-            f for f in findings
-            if severity_order.get(f.severity, 3) <= threshold
-        ]
+        findings = [f for f in findings if severity_order.get(f.severity, 3) <= threshold]
 
     return findings
 
@@ -113,6 +115,7 @@ def run_scan(
 # ---------------------------------------------------------------------------
 # Terraform subprocess
 # ---------------------------------------------------------------------------
+
 
 def _run_terraform(workspace: Path) -> tuple[list[str] | None, str]:
     """
@@ -162,6 +165,7 @@ def _run_terraform(workspace: Path) -> tuple[list[str] | None, str]:
 # ---------------------------------------------------------------------------
 # JSON Lines parser
 # ---------------------------------------------------------------------------
+
 
 def _parse_output(lines: list[str]) -> list[DriftFinding]:
     """
@@ -231,11 +235,7 @@ def _parse_drift_message(msg: dict) -> DriftFinding | None:
         return None
 
     # Extract resource ID from common terraform id fields
-    resource_id = (
-        after.get("id")
-        or before.get("id")
-        or addr
-    )
+    resource_id = after.get("id") or before.get("id") or addr
 
     changed_attributes = _diff_attributes(before, after)
     remediation = _build_remediation_hint(resource_type, resource_name, resource_id)
@@ -264,11 +264,13 @@ def _diff_attributes(before: dict, after: dict) -> list[dict]:
         val_before = before.get(key)
         val_after = after.get(key)
         if val_before != val_after:
-            changed.append({
-                "attribute": key,
-                "before": val_before,
-                "after": val_after,
-            })
+            changed.append(
+                {
+                    "attribute": key,
+                    "before": val_before,
+                    "after": val_after,
+                }
+            )
 
     return changed
 

@@ -15,6 +15,7 @@ CloudTrail LookupEvents constraints:
   - Returns: up to 50 events per page, newest first
   - Only covers management events (not S3 data events unless enabled)
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -36,38 +37,61 @@ console = Console()
 # ---------------------------------------------------------------------------
 
 RESOURCE_EVENT_PREFIXES: dict[str, list[str]] = {
-    "aws_security_group":               ["AuthorizeSecurityGroup", "RevokeSecurityGroup",
-                                         "ModifySecurityGroup", "CreateSecurityGroup"],
-    "aws_security_group_rule":          ["AuthorizeSecurityGroup", "RevokeSecurityGroup"],
-    "aws_iam_role":                     ["UpdateAssumeRolePolicy", "AttachRolePolicy",
-                                         "DetachRolePolicy", "PutRolePolicy"],
-    "aws_iam_role_policy":              ["PutRolePolicy", "DeleteRolePolicy",
-                                         "AttachRolePolicy", "DetachRolePolicy"],
-    "aws_iam_policy":                   ["CreatePolicy", "CreatePolicyVersion",
-                                         "DeletePolicyVersion"],
-    "aws_instance":                     ["ModifyInstanceAttribute", "StartInstances",
-                                         "StopInstances", "RebootInstances",
-                                         "TerminateInstances"],
-    "aws_s3_bucket_policy":             ["PutBucketPolicy", "DeleteBucketPolicy"],
-    "aws_s3_bucket_public_access_block":["PutPublicAccessBlock", "DeletePublicAccessBlock"],
-    "aws_s3_bucket":                    ["PutBucketTagging", "DeleteBucketTagging",
-                                         "PutBucketVersioning", "PutBucketAcl"],
-    "aws_rds_instance":                 ["ModifyDBInstance", "RebootDBInstance"],
-    "aws_rds_cluster":                  ["ModifyDBCluster"],
-    "aws_lambda_function":              ["UpdateFunctionCode", "UpdateFunctionConfiguration",
-                                         "TagResource", "UntagResource"],
-    "aws_lb":                           ["ModifyLoadBalancerAttributes", "SetSecurityGroups",
-                                         "ModifyListener"],
-    "aws_alb":                          ["ModifyLoadBalancerAttributes", "SetSecurityGroups"],
-    "aws_autoscaling_group":            ["UpdateAutoScalingGroup", "SetDesiredCapacity"],
-    "aws_cloudwatch_metric_alarm":      ["PutMetricAlarm", "DeleteAlarms"],
-    "aws_eks_cluster":                  ["UpdateClusterConfig", "UpdateClusterVersion"],
+    "aws_security_group": [
+        "AuthorizeSecurityGroup",
+        "RevokeSecurityGroup",
+        "ModifySecurityGroup",
+        "CreateSecurityGroup",
+    ],
+    "aws_security_group_rule": ["AuthorizeSecurityGroup", "RevokeSecurityGroup"],
+    "aws_iam_role": [
+        "UpdateAssumeRolePolicy",
+        "AttachRolePolicy",
+        "DetachRolePolicy",
+        "PutRolePolicy",
+    ],
+    "aws_iam_role_policy": [
+        "PutRolePolicy",
+        "DeleteRolePolicy",
+        "AttachRolePolicy",
+        "DetachRolePolicy",
+    ],
+    "aws_iam_policy": ["CreatePolicy", "CreatePolicyVersion", "DeletePolicyVersion"],
+    "aws_instance": [
+        "ModifyInstanceAttribute",
+        "StartInstances",
+        "StopInstances",
+        "RebootInstances",
+        "TerminateInstances",
+    ],
+    "aws_s3_bucket_policy": ["PutBucketPolicy", "DeleteBucketPolicy"],
+    "aws_s3_bucket_public_access_block": ["PutPublicAccessBlock", "DeletePublicAccessBlock"],
+    "aws_s3_bucket": [
+        "PutBucketTagging",
+        "DeleteBucketTagging",
+        "PutBucketVersioning",
+        "PutBucketAcl",
+    ],
+    "aws_rds_instance": ["ModifyDBInstance", "RebootDBInstance"],
+    "aws_rds_cluster": ["ModifyDBCluster"],
+    "aws_lambda_function": [
+        "UpdateFunctionCode",
+        "UpdateFunctionConfiguration",
+        "TagResource",
+        "UntagResource",
+    ],
+    "aws_lb": ["ModifyLoadBalancerAttributes", "SetSecurityGroups", "ModifyListener"],
+    "aws_alb": ["ModifyLoadBalancerAttributes", "SetSecurityGroups"],
+    "aws_autoscaling_group": ["UpdateAutoScalingGroup", "SetDesiredCapacity"],
+    "aws_cloudwatch_metric_alarm": ["PutMetricAlarm", "DeleteAlarms"],
+    "aws_eks_cluster": ["UpdateClusterConfig", "UpdateClusterVersion"],
 }
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def attribute_finding(
     finding: DriftFinding,
@@ -179,8 +203,7 @@ def _lookup_event(
         return None
     except botocore.exceptions.EndpointResolutionError:
         console.print(
-            "[yellow]⚠ Could not reach CloudTrail endpoint. "
-            "Check AWS credentials.[/yellow]"
+            "[yellow]⚠ Could not reach CloudTrail endpoint. " "Check AWS credentials.[/yellow]"
         )
     except Exception as e:
         console.print(f"[yellow]⚠ Unexpected CloudTrail error: {e}[/yellow]")
@@ -193,6 +216,7 @@ def _lookup_event(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _build_lookup_values(resource_type: str, resource_id: str) -> list[str]:
     """
     Build a prioritized list of values to try for CloudTrail ResourceName lookup.
@@ -203,10 +227,10 @@ def _build_lookup_values(resource_type: str, resource_id: str) -> list[str]:
 
     # Add ARN patterns for resource types where CloudTrail indexes by ARN
     arn_patterns = {
-        "aws_s3_bucket":                    f"arn:aws:s3:::{resource_id}",
-        "aws_s3_bucket_policy":             f"arn:aws:s3:::{resource_id}",
+        "aws_s3_bucket": f"arn:aws:s3:::{resource_id}",
+        "aws_s3_bucket_policy": f"arn:aws:s3:::{resource_id}",
         "aws_s3_bucket_public_access_block": f"arn:aws:s3:::{resource_id}",
-        "aws_lambda_function":              f"arn:aws:lambda:*:*:function:{resource_id}",
+        "aws_lambda_function": f"arn:aws:lambda:*:*:function:{resource_id}",
     }
 
     arn = arn_patterns.get(resource_type)
@@ -229,6 +253,7 @@ def _extract_principal(event: dict) -> str:
 
     # Fall back to CloudTrailEvent JSON for deeper principal info
     import json
+
     raw = event.get("CloudTrailEvent", "{}")
     try:
         ct_event = json.loads(raw)

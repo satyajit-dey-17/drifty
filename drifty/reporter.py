@@ -4,6 +4,7 @@ reporter.py — renders DriftFinding lists as Rich terminal output, JSON, or Mar
 This is the user-facing layer. The terminal output is the primary "wow moment":
 color-coded severity rows, attribution, remediation hints, and a summary panel.
 """
+
 from __future__ import annotations
 
 import json
@@ -29,6 +30,7 @@ err_console = Console(stderr=True)
 # Public entry point
 # ---------------------------------------------------------------------------
 
+
 def render(
     findings: list[DriftFinding],
     output_format: str = "terminal",
@@ -49,11 +51,10 @@ def render(
 # Terminal renderer (Rich)
 # ---------------------------------------------------------------------------
 
+
 def _render_terminal(findings: list[DriftFinding], workspace: Path) -> None:
     console.print()
-    console.print(
-        "[bold cyan]🔍 drifty — Terraform Drift Intelligence[/bold cyan]"
-    )
+    console.print("[bold cyan]🔍 drifty — Terraform Drift Intelligence[/bold cyan]")
     console.print(
         f"Scanning workspace: [bold]{workspace}[/bold]  |  "
         f"[dim]{datetime.now(tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}[/dim]"
@@ -102,8 +103,7 @@ def _render_terminal(findings: list[DriftFinding], workspace: Path) -> None:
     # Footer
     console.print(Rule(style="dim"))
     console.print(
-        "[dim]Run [bold]drifty report --format markdown[/bold] "
-        "to export this as a report.[/dim]"
+        "[dim]Run [bold]drifty report --format markdown[/bold] " "to export this as a report.[/dim]"
     )
     console.print()
 
@@ -144,9 +144,7 @@ def _render_finding_block(finding: DriftFinding) -> None:
 
     # Remediation hint
     if finding.remediation_hint:
-        console.print(
-            f"   [dim]Fix:[/dim]      [green]{finding.remediation_hint}[/green]"
-        )
+        console.print(f"   [dim]Fix:[/dim]      [green]{finding.remediation_hint}[/green]")
 
     console.print()
 
@@ -154,6 +152,7 @@ def _render_finding_block(finding: DriftFinding) -> None:
 # ---------------------------------------------------------------------------
 # JSON renderer
 # ---------------------------------------------------------------------------
+
 
 def _render_json(findings: list[DriftFinding]) -> None:
     """
@@ -188,6 +187,7 @@ def _finding_to_dict(finding: DriftFinding) -> dict:
 # ---------------------------------------------------------------------------
 # Markdown renderer
 # ---------------------------------------------------------------------------
+
 
 def _render_markdown(findings: list[DriftFinding], workspace: Path) -> None:
     """
@@ -249,9 +249,7 @@ def _render_markdown(findings: list[DriftFinding], workspace: Path) -> None:
             lines.append(f"- **When:** {_format_timestamp(finding.attributed_at)}")
             lines.append(f"- **Action:** `{finding.attributed_action}`")
         else:
-            lines.append(
-                "- _Attribution unavailable (event outside 90-day CloudTrail window)_"
-            )
+            lines.append("- _Attribution unavailable (event outside 90-day CloudTrail window)_")
         lines.append("")
 
         # Remediation
@@ -271,6 +269,7 @@ def _render_markdown(findings: list[DriftFinding], workspace: Path) -> None:
 # ---------------------------------------------------------------------------
 # report command entry point (Step 7 wires this in)
 # ---------------------------------------------------------------------------
+
 
 def generate_report(
     findings: list[DriftFinding],
@@ -294,9 +293,7 @@ def generate_report(
         output_file = Path(f"drifty-report-{now}{ext}")
 
     output_file.write_text(content, encoding="utf-8")
-    console.print(
-        f"[green]✓ Report written to:[/green] [bold cyan]{output_file}[/bold cyan]"
-    )
+    console.print(f"[green]✓ Report written to:[/green] [bold cyan]{output_file}[/bold cyan]")
 
 
 def _capture_json(findings: list[DriftFinding]) -> str:
@@ -312,6 +309,7 @@ def _capture_json(findings: list[DriftFinding]) -> str:
 def _capture_markdown(findings: list[DriftFinding], workspace: Path) -> str:
     import io
     from contextlib import redirect_stdout
+
     buf = io.StringIO()
     with redirect_stdout(buf):
         _render_markdown(findings, workspace)
@@ -321,6 +319,7 @@ def _capture_markdown(findings: list[DriftFinding], workspace: Path) -> str:
 # ---------------------------------------------------------------------------
 # Utility helpers
 # ---------------------------------------------------------------------------
+
 
 def _count_by_severity(findings: list[DriftFinding]) -> dict[str, int]:
     counts: dict[str, int] = {}

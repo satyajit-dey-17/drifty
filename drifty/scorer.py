@@ -12,6 +12,7 @@ Users can override per-resource severity via .drifty/config.yaml:
     aws_lambda_function: high
     aws_cloudwatch_metric_alarm: low
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -38,46 +39,43 @@ SEVERITY_ORDER = {CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3}
 
 SEVERITY_MAP: dict[str, str] = {
     # --- Critical: security boundary resources ---
-    "aws_iam_role_policy":                CRITICAL,
-    "aws_iam_policy":                     CRITICAL,
-    "aws_iam_role":                       CRITICAL,
-    "aws_iam_user_policy":                CRITICAL,
-    "aws_iam_group_policy":               CRITICAL,
-    "aws_security_group":                 CRITICAL,
-    "aws_security_group_rule":            CRITICAL,
-    "aws_s3_bucket_policy":               CRITICAL,
-    "aws_s3_bucket_public_access_block":  CRITICAL,
-    "aws_vpc":                            CRITICAL,
-    "aws_network_acl":                    CRITICAL,
-    "aws_network_acl_rule":               CRITICAL,
-
+    "aws_iam_role_policy": CRITICAL,
+    "aws_iam_policy": CRITICAL,
+    "aws_iam_role": CRITICAL,
+    "aws_iam_user_policy": CRITICAL,
+    "aws_iam_group_policy": CRITICAL,
+    "aws_security_group": CRITICAL,
+    "aws_security_group_rule": CRITICAL,
+    "aws_s3_bucket_policy": CRITICAL,
+    "aws_s3_bucket_public_access_block": CRITICAL,
+    "aws_vpc": CRITICAL,
+    "aws_network_acl": CRITICAL,
+    "aws_network_acl_rule": CRITICAL,
     # --- High: compute and data resources ---
-    "aws_instance":                       HIGH,
-    "aws_rds_instance":                   HIGH,
-    "aws_rds_cluster":                    HIGH,
-    "aws_lb":                             HIGH,
-    "aws_alb":                            HIGH,
-    "aws_elasticache_cluster":            HIGH,
-    "aws_eks_cluster":                    HIGH,
-    "aws_ecs_service":                    HIGH,
-    "aws_db_instance":                    HIGH,
-
+    "aws_instance": HIGH,
+    "aws_rds_instance": HIGH,
+    "aws_rds_cluster": HIGH,
+    "aws_lb": HIGH,
+    "aws_alb": HIGH,
+    "aws_elasticache_cluster": HIGH,
+    "aws_eks_cluster": HIGH,
+    "aws_ecs_service": HIGH,
+    "aws_db_instance": HIGH,
     # --- Medium: operational resources ---
-    "aws_lambda_function":                MEDIUM,
-    "aws_autoscaling_group":              MEDIUM,
-    "aws_cloudwatch_metric_alarm":        MEDIUM,
-    "aws_cloudwatch_log_group":           MEDIUM,
-    "aws_sns_topic":                      MEDIUM,
-    "aws_sqs_queue":                      MEDIUM,
-    "aws_route53_record":                 MEDIUM,
+    "aws_lambda_function": MEDIUM,
+    "aws_autoscaling_group": MEDIUM,
+    "aws_cloudwatch_metric_alarm": MEDIUM,
+    "aws_cloudwatch_log_group": MEDIUM,
+    "aws_sns_topic": MEDIUM,
+    "aws_sqs_queue": MEDIUM,
+    "aws_route53_record": MEDIUM,
     "aws_elasticloadbalancingv2_listener": MEDIUM,
-
     # --- Low: non-critical metadata ---
-    "aws_s3_bucket":                      LOW,
-    "aws_subnet":                         LOW,
-    "aws_route_table":                    LOW,
-    "aws_internet_gateway":               LOW,
-    "aws_eip":                            LOW,
+    "aws_s3_bucket": LOW,
+    "aws_subnet": LOW,
+    "aws_route_table": LOW,
+    "aws_internet_gateway": LOW,
+    "aws_eip": LOW,
 }
 
 
@@ -86,20 +84,20 @@ SEVERITY_MAP: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 SEVERITY_PREFIX_MAP: list[tuple[str, str]] = [
-    ("aws_iam_",        CRITICAL),
-    ("aws_security_",   CRITICAL),
-    ("aws_waf",         CRITICAL),
-    ("aws_kms_",        CRITICAL),
-    ("aws_rds_",        HIGH),
-    ("aws_eks_",        HIGH),
-    ("aws_ecs_",        HIGH),
-    ("aws_elb",         HIGH),
-    ("aws_lb",          HIGH),
-    ("aws_alb",         HIGH),
-    ("aws_lambda_",     MEDIUM),
+    ("aws_iam_", CRITICAL),
+    ("aws_security_", CRITICAL),
+    ("aws_waf", CRITICAL),
+    ("aws_kms_", CRITICAL),
+    ("aws_rds_", HIGH),
+    ("aws_eks_", HIGH),
+    ("aws_ecs_", HIGH),
+    ("aws_elb", HIGH),
+    ("aws_lb", HIGH),
+    ("aws_alb", HIGH),
+    ("aws_lambda_", MEDIUM),
     ("aws_cloudwatch_", MEDIUM),
-    ("aws_sns_",        MEDIUM),
-    ("aws_sqs_",        MEDIUM),
+    ("aws_sns_", MEDIUM),
+    ("aws_sqs_", MEDIUM),
 ]
 
 
@@ -108,21 +106,25 @@ SEVERITY_PREFIX_MAP: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 
 # Attributes that are considered "tag-only" metadata changes
-_TAG_ATTRIBUTE_NAMES = frozenset({
-    "tags",
-    "tags_all",
-    "labels",
-})
+_TAG_ATTRIBUTE_NAMES = frozenset(
+    {
+        "tags",
+        "tags_all",
+        "labels",
+    }
+)
 
 # Resource types where a tag-only change downgrades severity to Low
-_TAG_ONLY_DOWNGRADE_TYPES = frozenset({
-    "aws_instance",
-    "aws_s3_bucket",
-    "aws_rds_instance",
-    "aws_lambda_function",
-    "aws_lb",
-    "aws_alb",
-})
+_TAG_ONLY_DOWNGRADE_TYPES = frozenset(
+    {
+        "aws_instance",
+        "aws_s3_bucket",
+        "aws_rds_instance",
+        "aws_lambda_function",
+        "aws_lb",
+        "aws_alb",
+    }
+)
 
 
 def _is_tag_only_change(finding: DriftFinding) -> bool:
@@ -142,6 +144,7 @@ def _is_tag_only_change(finding: DriftFinding) -> bool:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def score(finding: DriftFinding, config_overrides: dict[str, str] | None = None) -> str:
     """
@@ -163,10 +166,7 @@ def score(finding: DriftFinding, config_overrides: dict[str, str] | None = None)
             return override
 
     # 2. Tag-only change downgrade (before exact match so it overrides HIGH)
-    if (
-        resource_type in _TAG_ONLY_DOWNGRADE_TYPES
-        and _is_tag_only_change(finding)
-    ):
+    if resource_type in _TAG_ONLY_DOWNGRADE_TYPES and _is_tag_only_change(finding):
         return LOW
 
     # 3. Exact match
@@ -186,9 +186,9 @@ def severity_color(severity: str) -> str:
     """Return a Rich color string for a given severity level."""
     return {
         CRITICAL: "bold red",
-        HIGH:     "bold orange1",
-        MEDIUM:   "bold yellow",
-        LOW:      "bold green",
+        HIGH: "bold orange1",
+        MEDIUM: "bold yellow",
+        LOW: "bold green",
     }.get(severity, "white")
 
 
@@ -196,9 +196,9 @@ def severity_emoji(severity: str) -> str:
     """Return an emoji badge for a given severity level."""
     return {
         CRITICAL: "🔴",
-        HIGH:     "🟠",
-        MEDIUM:   "🟡",
-        LOW:      "🟢",
+        HIGH: "🟠",
+        MEDIUM: "🟡",
+        LOW: "🟢",
     }.get(severity, "⚪")
 
 

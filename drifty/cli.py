@@ -2,6 +2,7 @@
 drifty — Terraform Drift Intelligence
 Entry point for all CLI commands via Typer.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -38,6 +39,7 @@ console = Console()
 # Version callback
 # ---------------------------------------------------------------------------
 
+
 def version_callback(value: bool) -> None:
     if value:
         console.print(f"[bold cyan]drifty[/bold cyan] version [green]{__version__}[/green]")
@@ -47,6 +49,7 @@ def version_callback(value: bool) -> None:
 # ---------------------------------------------------------------------------
 # Root options
 # ---------------------------------------------------------------------------
+
 
 @app.callback()
 def main(
@@ -70,6 +73,7 @@ def main(
 # drifty init
 # ---------------------------------------------------------------------------
 
+
 @app.command("init")
 def cmd_init(
     workspace: Path = typer.Option(
@@ -92,6 +96,7 @@ def cmd_init(
 # ---------------------------------------------------------------------------
 # drifty scan
 # ---------------------------------------------------------------------------
+
 
 @app.command("scan")
 def cmd_scan(
@@ -208,16 +213,23 @@ def cmd_scan(
 def cmd_report(
     workspace: Path = typer.Option(
         Path("."),
-        "--workspace", "-w",
+        "--workspace",
+        "-w",
         help="Path to Terraform workspace directory.",
-        exists=True, file_okay=False, dir_okay=True, resolve_path=True,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
     ),
     format: str = typer.Option(
-        "markdown", "--format", "-f",
+        "markdown",
+        "--format",
+        "-f",
         help="Report format: markdown | json.",
     ),
     output_file: Path | None = typer.Option(
-        None, "--out",
+        None,
+        "--out",
         help="File path to write report to. Defaults to ./drifty-report-YYYY-MM-DD.md",
     ),
 ) -> None:
@@ -244,9 +256,11 @@ def cmd_report(
     findings = run_scan(workspace=workspace, profile="default")
     generate_report(findings, format=format, output_file=output_file, workspace=workspace)
 
+
 # ---------------------------------------------------------------------------
 # drifty config show
 # ---------------------------------------------------------------------------
+
 
 @config_app.command("show")
 def cmd_config_show() -> None:
@@ -259,6 +273,7 @@ def cmd_config_show() -> None:
 # ---------------------------------------------------------------------------
 # drifty config set
 # ---------------------------------------------------------------------------
+
 
 @config_app.command("set")
 def cmd_config_set(

@@ -3,6 +3,7 @@ config.py — reads and writes .drifty/config.yaml in the active workspace.
 
 Config file location: <workspace>/.drifty/config.yaml
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,11 +26,11 @@ CONFIG_FILE_NAME = "config.yaml"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "default_profile": "default",
-    "default_severity": None,          # None means show all severities
+    "default_severity": None,  # None means show all severities
     "default_output": "terminal",
     "slack_webhook": None,
     "cloudtrail_lookback_days": 90,
-    "severity_overrides": {},           # e.g. {"aws_lambda_function": "high"}
+    "severity_overrides": {},  # e.g. {"aws_lambda_function": "high"}
 }
 
 VALID_KEYS = set(DEFAULT_CONFIG.keys())
@@ -40,6 +41,7 @@ VALID_OUTPUTS = {"terminal", "json", "markdown"}
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _config_path(workspace: Path) -> Path:
     return workspace / CONFIG_DIR_NAME / CONFIG_FILE_NAME
@@ -76,6 +78,7 @@ def _merge_with_defaults(raw: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Public API (called from cli.py)
 # ---------------------------------------------------------------------------
+
 
 def init_workspace(workspace: Path) -> None:
     """
@@ -130,9 +133,7 @@ def show_config(workspace: Path = Path(".")) -> None:
 
     config = load_config(workspace)
 
-    console.print(
-        f"\n[bold]Config file:[/bold] [cyan]{path}[/cyan]\n"
-    )
+    console.print(f"\n[bold]Config file:[/bold] [cyan]{path}[/cyan]\n")
     _print_config_table(config)
 
     # Also show raw YAML for copy-paste convenience
@@ -184,6 +185,7 @@ def set_config_value(key: str, value: str, workspace: Path = Path(".")) -> None:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _coerce_value(key: str, value: str) -> Any:
     """
     Coerce a string value to the appropriate Python type for a given key.
@@ -204,9 +206,7 @@ def _coerce_value(key: str, value: str) -> Any:
                 return None
             return days
         except ValueError:
-            console.print(
-                "[red]✗ [bold]cloudtrail_lookback_days[/bold] must be an integer.[/red]"
-            )
+            console.print("[red]✗ [bold]cloudtrail_lookback_days[/bold] must be an integer.[/red]")
             return None
 
     # Severity keys
@@ -234,9 +234,7 @@ def _coerce_value(key: str, value: str) -> Any:
 
 
 def _print_validation_error(key: str, value: str) -> None:
-    console.print(
-        f"[red]✗ Invalid value [bold]{value!r}[/bold] for key [bold]{key}[/bold].[/red]"
-    )
+    console.print(f"[red]✗ Invalid value [bold]{value!r}[/bold] for key [bold]{key}[/bold].[/red]")
 
 
 def _print_config_table(config: dict[str, Any]) -> None:
@@ -247,20 +245,24 @@ def _print_config_table(config: dict[str, Any]) -> None:
     table.add_column("Description", style="dim")
 
     descriptions = {
-        "default_profile":          "AWS CLI profile for CloudTrail lookups",
-        "default_severity":         "Minimum severity filter (null = show all)",
-        "default_output":           "Output format: terminal | json | markdown",
-        "slack_webhook":            "Slack incoming webhook URL for --notify slack",
+        "default_profile": "AWS CLI profile for CloudTrail lookups",
+        "default_severity": "Minimum severity filter (null = show all)",
+        "default_output": "Output format: terminal | json | markdown",
+        "slack_webhook": "Slack incoming webhook URL for --notify slack",
         "cloudtrail_lookback_days": "How far back to search CloudTrail (max 90)",
-        "severity_overrides":       "Per-resource severity overrides (YAML map)",
+        "severity_overrides": "Per-resource severity overrides (YAML map)",
     }
 
     for key in sorted(config.keys()):
         val = config[key]
         display = (
-            "[dim]null[/dim]" if val is None
-            else str(val) if not isinstance(val, dict)
-            else yaml.dump(val, default_flow_style=True).strip()
+            "[dim]null[/dim]"
+            if val is None
+            else (
+                str(val)
+                if not isinstance(val, dict)
+                else yaml.dump(val, default_flow_style=True).strip()
+            )
         )
         table.add_row(key, display, descriptions.get(key, ""))
 
