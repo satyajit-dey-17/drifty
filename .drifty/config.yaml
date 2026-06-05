@@ -1,0 +1,6 @@
+cloudtrail_lookback_days: 30
+default_output: terminal
+default_profile: prod
+default_severity: high
+severity_overrides: {}
+slack_webhook: https://hooks.slack.com/test
