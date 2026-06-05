@@ -93,6 +93,10 @@ drifty scan --output json | jq '.findings[] | select(.severity=="critical")'
 
 # 6. Export a markdown report
 drifty report --format markdown --out ./drift-report.md
+
+# 7. Send drift summary to Slack
+drifty config set slack_webhook=https://hooks.slack.com/services/xxx/yyy/zzz
+drifty scan --notify slack
 ```
 
 ---
@@ -158,6 +162,24 @@ drifty report --format markdown --out ./reports/drift-$(date +%F).md
 drifty report --format json
 ```
 
+### `drifty scan --notify slack`
+
+Sends a Slack Block Kit message when drift is found. Requires a webhook URL configured in `.drifty/config.yaml`.
+
+```bash
+# One-time setup
+drifty config set slack_webhook=https://hooks.slack.com/services/T.../B.../xxx
+
+# Then just add the flag
+drifty scan --notify slack
+drifty scan --attribute --notify slack --severity high
+```
+
+The Slack message includes:
+- Severity summary (🔴 Critical / 🟠 High / 🟡 Medium / 🟢 Low counts)
+- Per-finding blocks with changed attributes, CloudTrail attribution, and remediation hint
+- Capped at 10 findings per message to stay within Slack's block limit
+
 ---
 
 ## Severity Rules
@@ -197,6 +219,7 @@ severity_overrides:
 | Works locally / in CI | ✅ | ❌ SaaS only | ✅ |
 | Cost | free | $$$ | free |
 | Install | N/A | platform setup | `pip install drifty` |
+| Slack / webhook alerts | ❌ | ❌ | ✅ v0.2.0 |
 
 ---
 
@@ -216,10 +239,10 @@ severity_overrides: {}            # per-resource type overrides
 
 ## Roadmap
 
-- [ ] `--notify slack` — post drift summary to Slack webhook
-- [ ] `drifty watch` — continuous drift monitoring on a poll interval
+- [x] `--notify slack` — post drift summary to Slack webhook _(v0.2.0)_
+- [ ] `drifty watch` — continuous drift monitoring (poll on interval)
 - [ ] Azure and GCP provider support
-- [ ] GitHub PR comment integration — post drift report as a PR comment
+- [ ] GitHub PR comment integration
 - [ ] Drift history — persist findings to `.drifty/history.json`
 - [ ] `drifty ignore` — suppress known/accepted drift entries
 
