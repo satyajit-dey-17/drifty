@@ -194,16 +194,35 @@ def cmd_scan(
         workspace=workspace,
         profile=profile,
         with_attribution=attribute,
-        severity_filter=severity.lower() if severity else None,
+        severity_filter=severity,
     )
 
-    render(findings, output_format=output, workspace=workspace)
-
+    # ── Notify ──────────────────────────────────────────────────────────────
     if notify:
-        console.print(
-            f"\n[yellow]⚠ Notify via [bold]{notify}[/bold] not yet configured. "
-            "Run [bold]drifty config set slack_webhook=<URL>[/bold] first.[/yellow]"
-        )
+        if notify == "slack":
+            from drifty.config import load_config
+            from drifty.notifiers.slack import notify_slack
+
+            cfg = load_config(workspace)
+            webhook_url = cfg.get("slack_webhook") if cfg else None
+
+            if not webhook_url:
+                console.print(
+                    "[red]✗ slack_webhook not configured.[/red]\n"
+                    "  Run: [bold]drifty config set slack_webhook=https://hooks.slack.com/...[/bold]"
+                )
+            else:
+                success = notify_slack(findings, webhook_url=webhook_url, workspace=workspace)
+                if success and findings:
+                    console.print("[green]✓ Slack notification sent.[/green]")
+        else:
+            console.print(
+                f"[red]✗ Unknown notifier:[/red] [bold]{notify}[/bold]. "
+                "Currently supported: [bold]slack[/bold]"
+            )
+
+    # ── Render ──────────────────────────────────────────────────────────────
+    render(findings, output_format=output, workspace=workspace)
 
 
 # ---------------------------------------------------------------------------
