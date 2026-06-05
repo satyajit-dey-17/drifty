@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "drifty"
-version = "0.1.0"
+version = "0.2.0"
 description = "Terraform drift intelligence: detect, attribute, score, and fix IaC drift"
 readme = "README.md"
 license = { text = "MIT" }
