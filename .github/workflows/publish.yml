@@ -1,8 +1,9 @@
 name: Publish to PyPI
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
 
   workflow_dispatch:
     inputs:
@@ -33,7 +34,7 @@ jobs:
           version: latest
 
       - name: Verify version matches release tag
-        if: github.event_name == 'release'
+        if: github.event_name == 'push'
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
           PYPROJECT_VERSION=$(poetry version --short)
@@ -64,11 +65,43 @@ jobs:
           name: dist
           path: dist/
 
-  publish:
-    name: Publish to PyPI
+  release:
+    name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
+    if: github.event_name == 'push'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          # Extract the block between this version header and the next
+          NOTES=$(awk "/^## \[${TAG}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          # Write to file to preserve newlines
+          echo "$NOTES" > release_notes.txt
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "v${{ steps.changelog.outputs.tag }}"
+          body_path: release_notes.txt
+          draft: false
+          prerelease: false
+
+  publish:
+    name: Publish to PyPI
+    needs: release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
 
     environment:
       name: pypi
