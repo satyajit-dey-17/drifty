@@ -312,6 +312,7 @@ severity_overrides:
 | Slack / webhook alerts | ❌ | ❌ | ✅ v0.2.0 |
 | Continuous drift watch | ❌ | ✅ scheduled | ✅ v0.3.0 |
 | GitHub PR comment | ❌ | ❌ | ✅ v0.4.0 |
+| Drift history / trends | ❌ | ❌ | ✅ v0.5.0 |
 
 ---
 
