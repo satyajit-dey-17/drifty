@@ -103,6 +103,15 @@ drifty watch --interval 300 --threshold high --notify slack
 
 # 9. Watch with CloudTrail attribution on every cycle
 drifty watch --interval 300 --attribute --notify slack
+
+# 10. Post drift report as a GitHub PR comment
+drifty report-pr --attribute --severity high
+
+# 11. View drift history across previous scans
+drifty history
+
+# 12. Show last 30 scans, high severity and above
+drifty history --last 30 --severity high
 ```
 
 ---
@@ -243,6 +252,24 @@ Each finding renders as a collapsible `<details>` block with a changed attribute
     PR_NUMBER: ${{ github.event.pull_request.number }}
 ```
 
+### `drifty history`
+
+Shows drift trends from previous scans. Findings are automatically persisted to `.drifty/history.json` after every `drifty scan`.
+
+```text
+Options:
+  --workspace PATH    Terraform directory (default: current dir)
+  --last INT          Number of recent scans to show (default: 10)
+  --severity TEXT     Minimum severity filter: critical | high | medium | low
+  --output TEXT       terminal | json
+```
+
+```bash
+drifty history
+drifty history --last 30 --severity high
+drifty history --output json
+```
+
 ---
 
 ## Severity Rules
@@ -307,8 +334,8 @@ severity_overrides: {}            # per-resource type overrides
 - [x] `--notify slack` — post drift summary to Slack webhook _(v0.2.0)_
 - [x] `drifty watch` — continuous drift monitoring (poll on interval)
 - [x] GitHub PR comment integration
+- [x] Drift history — persist findings to `.drifty/history.json`
 - [ ] Azure and GCP provider support
-- [ ] Drift history — persist findings to `.drifty/history.json`
 - [ ] `drifty ignore` — suppress known/accepted drift entries
 
 ---
