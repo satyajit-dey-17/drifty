@@ -10,6 +10,8 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from drifty.watch import cmd_watch
+
 from drifty import __version__
 from drifty.config import (
     init_workspace,
@@ -31,6 +33,8 @@ config_app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(config_app, name="config")
+
+app.command("watch")(cmd_watch)
 
 console = Console()
 
@@ -120,8 +124,7 @@ def cmd_scan(
         False,
         "--attribute",
         "-a",
-        help="Enable CloudTrail attribution (who caused each drift).",
-        is_flag=True,
+        help="Enable CloudTrail attribution (who caused each drift)."
     ),
     severity: str | None = typer.Option(
         None,
