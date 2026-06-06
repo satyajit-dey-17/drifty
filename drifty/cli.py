@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from drifty.watch import cmd_watch
+from drifty.github import post_pr_comment  # add this
+
 import typer
 from rich.console import Console
 
@@ -274,6 +277,89 @@ def cmd_report(
     findings = run_scan(workspace=workspace, profile="default")
     generate_report(findings, format=format, output_file=output_file, workspace=workspace)
 
+# ---------------------------------------------------------------------------
+# drifty report-pr
+# ---------------------------------------------------------------------------
+
+@app.command("report-pr")
+def cmd_report_pr(
+    workspace: Path = typer.Option(
+        Path("."),
+        "--workspace",
+        "-w",
+        help="Path to Terraform workspace directory.",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    profile: str = typer.Option(
+        "default",
+        "--profile",
+        "-p",
+        help="AWS CLI profile to use for CloudTrail lookups.",
+    ),
+    attribute: bool = typer.Option(
+        False, "--attribute", "-a", help="Enable CloudTrail attribution."
+    ),
+    severity: str | None = typer.Option(
+        None,
+        "--severity",
+        "-s",
+        help="Minimum severity filter: critical | high | medium | low.",
+    ),
+    token: str | None = typer.Option(
+        None,
+        "--token",
+        help="GitHub token. Defaults to GITHUB_TOKEN env var.",
+    ),
+    repo: str | None = typer.Option(
+        None,
+        "--repo",
+        help="GitHub repository (owner/repo). Defaults to GITHUB_REPOSITORY env var.",
+    ),
+    pr: int | None = typer.Option(
+        None,
+        "--pr",
+        help="Pull request number. Defaults to PR_NUMBER env var.",
+    ),
+) -> None:
+    """
+    Scan for drift and post the report as a GitHub PR comment.
+
+    Reads [bold]GITHUB_TOKEN[/bold], [bold]GITHUB_REPOSITORY[/bold],
+    and [bold]PR_NUMBER[/bold] from environment (set automatically in GitHub Actions).
+
+    [bold]Examples:[/bold]
+
+      [cyan]drifty report-pr[/cyan]
+
+      [cyan]drifty report-pr --attribute --severity high[/cyan]
+
+      [cyan]drifty report-pr --repo owner/infra --pr 42 --token ghp_xxx[/cyan]
+    """
+    from drifty.scanner import run_scan
+
+    findings = run_scan(
+        workspace=workspace,
+        profile=profile,
+        with_attribution=attribute,
+        severity_filter=severity,
+    )
+
+    success = post_pr_comment(
+        findings,
+        workspace=workspace,
+        github_token=token,
+        repository=repo,
+        pr_number=pr,
+    )
+
+    if success:
+        console.print("[green]✓ Drift report posted to PR.[/green]")
+    else:
+        console.print("[red]✗ Failed to post PR comment. Check warnings above.[/red]")
+        raise typer.Exit(code=1)
 
 # ---------------------------------------------------------------------------
 # drifty config show
