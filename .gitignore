@@ -1,0 +1,19 @@
+# drifty runtime state
+.drifty/
+
+# Build artifacts
+dist/
+*.egg-info/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environment
+.env
+.venv/
+
+# macOS
+.DS_Store

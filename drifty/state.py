@@ -43,13 +43,11 @@ def save_state(known_findings: dict) -> None:
 def diff_findings(new_findings: list, state: dict) -> list:
     known = state.get("known_findings", {})
     return [
-        f for f in new_findings
+        f
+        for f in new_findings
         if known.get(f"{f.resource_type}.{f.resource_name}") != _hash_finding(f)
     ]
 
 
 def build_known_findings(findings: list) -> dict:
-    return {
-        f"{f.resource_type}.{f.resource_name}": _hash_finding(f)
-        for f in findings
-    }
+    return {f"{f.resource_type}.{f.resource_name}": _hash_finding(f) for f in findings}

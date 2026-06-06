@@ -10,14 +10,13 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from drifty.watch import cmd_watch
-
 from drifty import __version__
 from drifty.config import (
     init_workspace,
     set_config_value,
     show_config,
 )
+from drifty.watch import cmd_watch
 
 app = typer.Typer(
     name="drifty",
@@ -121,10 +120,7 @@ def cmd_scan(
         help="AWS CLI profile to use for CloudTrail lookups.",
     ),
     attribute: bool = typer.Option(
-        False,
-        "--attribute",
-        "-a",
-        help="Enable CloudTrail attribution (who caused each drift)."
+        False, "--attribute", "-a", help="Enable CloudTrail attribution (who caused each drift)."
     ),
     severity: str | None = typer.Option(
         None,

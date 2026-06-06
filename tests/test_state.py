@@ -158,3 +158,4 @@ def test_build_known_findings_keys(finding, another_finding):
 def test_build_known_findings_values_are_hashes(finding):
     known = build_known_findings([finding])
     assert known["aws_security_group.main"] == _hash_finding(finding)
+    

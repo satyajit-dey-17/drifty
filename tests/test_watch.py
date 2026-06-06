@@ -172,3 +172,4 @@ def test_run_cycle_saves_state_after_scan(tmp_path, monkeypatch, critical_findin
 
     state_file = tmp_path / ".drifty" / "state.json"
     assert state_file.exists()
+    

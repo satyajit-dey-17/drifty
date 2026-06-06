@@ -4,7 +4,6 @@ import signal
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -54,7 +53,7 @@ def cmd_watch(
         help="Seconds between scans.",
         min=30,
     ),
-    notify: Optional[str] = typer.Option(
+    notify: str | None = typer.Option(
         None,
         "--notify",
         "-n",
@@ -112,6 +111,7 @@ def cmd_watch(
     if notify:
         from drifty.config import load_config
         from drifty.notifiers import get_notifier
+
         cfg = load_config(workspace)
         webhook_url = cfg.get("slack_webhook") if cfg else None
         if not webhook_url:
