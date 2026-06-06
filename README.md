@@ -97,6 +97,12 @@ drifty report --format markdown --out ./drift-report.md
 # 7. Send drift summary to Slack
 drifty config set slack_webhook=https://hooks.slack.com/services/xxx/yyy/zzz
 drifty scan --notify slack
+
+# 8. Watch for new drift continuously (poll every 5 minutes)
+drifty watch --interval 300 --threshold high --notify slack
+
+# 9. Watch with CloudTrail attribution on every cycle
+drifty watch --interval 300 --attribute --notify slack
 ```
 
 ---
@@ -180,6 +186,29 @@ The Slack message includes:
 - Per-finding blocks with changed attributes, CloudTrail attribution, and remediation hint
 - Capped at 10 findings per message to stay within Slack's block limit
 
+### `drifty watch`
+
+Continuously monitors your Terraform workspace for drift and alerts when new findings appear.
+
+```text
+Options:
+  --workspace PATH    Terraform directory (default: current dir)
+  --interval INT      Polling interval in seconds (default: 300)
+  --threshold TEXT    Minimum severity to trigger alert: critical | high | medium | low
+  --notify TEXT       Notifier to use when new drift is detected: slack
+  --attribute         Enable CloudTrail attribution on each cycle
+```
+
+```bash
+# Poll every 5 minutes, alert on high+ drift via Slack
+drifty watch --interval 300 --threshold high --notify slack --attribute
+
+# Run locally with a fast interval for testing
+drifty watch --interval 60 --threshold low
+```
+
+drifty watch tracks state between cycles using a finding hash stored in `.drifty/state.json`. It only alerts on **new** drift — findings already seen in the previous cycle are suppressed to avoid repeated noise.
+
 ---
 
 ## Severity Rules
@@ -220,6 +249,7 @@ severity_overrides:
 | Cost | free | $$$ | free |
 | Install | N/A | platform setup | `pip install drifty` |
 | Slack / webhook alerts | ❌ | ❌ | ✅ v0.2.0 |
+| Continuous drift watch | ❌ | ✅ scheduled | ✅ v0.3.0 |
 
 ---
 
@@ -240,7 +270,7 @@ severity_overrides: {}            # per-resource type overrides
 ## Roadmap
 
 - [x] `--notify slack` — post drift summary to Slack webhook _(v0.2.0)_
-- [ ] `drifty watch` — continuous drift monitoring (poll on interval)
+- [x] `drifty watch` — continuous drift monitoring (poll on interval)
 - [ ] Azure and GCP provider support
 - [ ] GitHub PR comment integration
 - [ ] Drift history — persist findings to `.drifty/history.json`
