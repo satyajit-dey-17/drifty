@@ -7,9 +7,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from drifty.watch import cmd_watch
-from drifty.github import post_pr_comment  # add this
-
 import typer
 from rich.console import Console
 
@@ -19,6 +16,7 @@ from drifty.config import (
     set_config_value,
     show_config,
 )
+from drifty.github import post_pr_comment  # add this
 from drifty.watch import cmd_watch
 
 app = typer.Typer(
@@ -277,9 +275,11 @@ def cmd_report(
     findings = run_scan(workspace=workspace, profile="default")
     generate_report(findings, format=format, output_file=output_file, workspace=workspace)
 
+
 # ---------------------------------------------------------------------------
 # drifty report-pr
 # ---------------------------------------------------------------------------
+
 
 @app.command("report-pr")
 def cmd_report_pr(
@@ -360,6 +360,7 @@ def cmd_report_pr(
     else:
         console.print("[red]✗ Failed to post PR comment. Check warnings above.[/red]")
         raise typer.Exit(code=1)
+
 
 # ---------------------------------------------------------------------------
 # drifty config show
