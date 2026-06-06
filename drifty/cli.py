@@ -5,6 +5,7 @@ Entry point for all CLI commands via Typer.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import typer
@@ -17,6 +18,7 @@ from drifty.config import (
     show_config,
 )
 from drifty.github import post_pr_comment  # add this
+from drifty.history import load_history, most_drifted_resources
 from drifty.watch import cmd_watch
 
 app = typer.Typer(
@@ -373,6 +375,121 @@ def cmd_config_show() -> None:
     Display the current drifty configuration.
     """
     show_config()
+
+
+# ---------------------------------------------------------------------------
+# drifty history
+# ---------------------------------------------------------------------------
+
+
+@app.command("history")
+def cmd_history(
+    workspace: Path = typer.Option(
+        Path("."),
+        "--workspace",
+        "-w",
+        help="Path to Terraform workspace directory.",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    last: int = typer.Option(
+        10,
+        "--last",
+        "-n",
+        help="Number of most recent scans to show.",
+    ),
+    severity: str | None = typer.Option(
+        None,
+        "--severity",
+        "-s",
+        help="Minimum severity filter: critical | high | medium | low.",
+    ),
+    output: str = typer.Option(
+        "terminal",
+        "--output",
+        "-o",
+        help="Output format: terminal | json.",
+    ),
+) -> None:
+    """
+    Show drift history from previous scans.
+
+    Reads from [bold].drifty/history.json[/bold] in the workspace.
+
+    [bold]Examples:[/bold]
+
+      [cyan]drifty history[/cyan]
+
+      [cyan]drifty history --last 30 --severity high[/cyan]
+
+      [cyan]drifty history --output json[/cyan]
+    """
+    from drifty.scorer import SEVERITY_ORDER
+
+    entries = load_history(workspace, last=last)
+
+    if not entries:
+        console.print(
+            "[yellow]No history found.[/yellow] Run [bold cyan]drifty scan[/bold cyan] first."
+        )
+        raise typer.Exit()
+
+    # Apply severity filter — keep entry if it has findings at or above threshold
+    if severity:
+        threshold = SEVERITY_ORDER.get(severity.lower(), 3)
+        entries = [
+            e
+            for e in entries
+            if any(SEVERITY_ORDER.get(f["severity"], 3) <= threshold for f in e.get("findings", []))
+        ]
+
+    if output == "json":
+        console.print_json(json.dumps(entries, indent=2, default=str))
+        raise typer.Exit()
+
+    # ── Terminal table ────────────────────────────────────────────────────
+    from rich.table import Table
+
+    console.print(
+        f"\n[bold cyan]🕓 drifty history[/bold cyan] — last {last} scans  "
+        f"(workspace: [bold]{workspace.name}[/bold])\n"
+    )
+
+    table = Table(show_header=True, header_style="bold", box=None, pad_edge=False)
+    table.add_column("Scan", style="dim", min_width=20)
+    table.add_column("Total", justify="right")
+    table.add_column("🔴", justify="right")
+    table.add_column("🟠", justify="right")
+    table.add_column("🟡", justify="right")
+    table.add_column("🟢", justify="right")
+
+    for entry in entries:
+        scanned_at = entry["scanned_at"][:16].replace("T", " ")
+        total = entry["total"]
+        crit = entry["critical"] or ("—" if total == 0 else "0")
+        high = entry["high"] or ("—" if total == 0 else "0")
+        med = entry["medium"] or ("—" if total == 0 else "0")
+        low = entry["low"] or ("—" if total == 0 else "0")
+        table.add_row(scanned_at, str(total), str(crit), str(high), str(med), str(low))
+
+    console.print(table)
+
+    # ── Most drifted resources ─────────────────────────────────────────────
+    top = most_drifted_resources(workspace, last=last)
+    if top:
+        from drifty.scorer import severity_emoji
+
+        console.print("\n[bold]Most drifted resources:[/bold]")
+        for r in top[:10]:
+            emoji = severity_emoji(r["severity"])
+            console.print(
+                f"  [cyan]{r['addr']:<45}[/cyan] "
+                f"[bold]{r['count']}[/bold] time{'s' if r['count'] != 1 else ''}  "
+                f"{emoji} {r['severity']}"
+            )
+    console.print()
 
 
 # ---------------------------------------------------------------------------

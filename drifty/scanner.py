@@ -18,6 +18,8 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
+from drifty.history import append_findings
+
 console = Console()
 err_console = Console(stderr=True)
 
@@ -109,6 +111,7 @@ def run_scan(
         threshold = severity_order.get(severity_filter, 3)
         findings = [f for f in findings if severity_order.get(f.severity, 3) <= threshold]
 
+    append_findings(findings, workspace)
     return findings
 
 
