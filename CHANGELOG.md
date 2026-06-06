@@ -4,6 +4,15 @@ All notable changes to drifty will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-06-06
+
+### Added
+- `drifty watch` command — continuous drift monitoring with configurable `--interval`
+- `drifty/state.py` — finding hashing, `load_state()`, `save_state()`, `diff_findings()`, `build_known_findings()`
+- `drifty/watch.py` — `cmd_watch()` with `--notify`, `--threshold`, `--attribute` flags; `_run_cycle()` extracted for testability
+- Notifier registry pattern in `drifty/notifiers/__init__.py` — `get_notifier(name, **kwargs)` for extensible integrations (PagerDuty, Teams, etc.)
+- 22 new tests (138 total)
+
 ## [0.2.0] - 2026-06-05
 
 ### Added
