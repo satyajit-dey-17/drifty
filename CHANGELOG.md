@@ -4,6 +4,14 @@ All notable changes to drifty will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-06-06
+
+### Added
+- `drifty report-pr` command — scans for drift and posts a formatted report as a GitHub PR comment
+- `drifty/github.py` — GitHub REST API backend, collapsible `<details>` Markdown blocks per finding
+- Reads `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, `PR_NUMBER` from environment (native GitHub Actions support)
+- 25 new tests (163 total)
+
 ## [0.3.0] - 2026-06-06
 
 ### Added
