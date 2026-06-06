@@ -4,6 +4,15 @@ All notable changes to drifty will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-06-06
+
+### Added
+- `drifty history` command — shows drift trends across previous scans
+- `drifty/history.py` — `append_findings()`, `load_history()`, `most_drifted_resources()`
+- Scan results auto-persisted to `.drifty/history.json` after every `drifty scan`
+- Per-scan table with severity counts and most-drifted resources ranking
+- 19 new tests (182 total)
+
 ## [0.4.0] - 2026-06-06
 
 ### Added
