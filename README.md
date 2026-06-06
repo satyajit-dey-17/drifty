@@ -209,6 +209,40 @@ drifty watch --interval 60 --threshold low
 
 drifty watch tracks state between cycles using a finding hash stored in `.drifty/state.json`. It only alerts on **new** drift — findings already seen in the previous cycle are suppressed to avoid repeated noise.
 
+### `drifty report-pr`
+
+Scans for drift and posts a formatted report as a comment on a GitHub Pull Request.
+
+```text
+Options:
+  --workspace PATH    Terraform directory (default: current dir)
+  --profile TEXT      AWS CLI profile
+  --attribute         Enable CloudTrail attribution
+  --severity TEXT     Minimum severity filter: critical | high | medium | low
+  --token TEXT        GitHub token (defaults to GITHUB_TOKEN env var)
+  --repo TEXT         Repository in owner/repo format (defaults to GITHUB_REPOSITORY env var)
+  --pr INT            Pull request number (defaults to PR_NUMBER env var)
+```
+
+```bash
+# In GitHub Actions (env vars set automatically)
+drifty report-pr --attribute --severity high
+
+# Locally against a specific PR
+drifty report-pr --repo acme/infra --pr 42 --token ghp_xxx
+```
+
+Each finding renders as a collapsible `<details>` block with a changed attributes table, CloudTrail attribution, and a remediation hint. Add this step to your workflow:
+
+```yaml
+- name: Drift Report
+  run: drifty report-pr --attribute --severity high
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    GITHUB_REPOSITORY: ${{ github.repository }}
+    PR_NUMBER: ${{ github.event.pull_request.number }}
+```
+
 ---
 
 ## Severity Rules
@@ -250,6 +284,7 @@ severity_overrides:
 | Install | N/A | platform setup | `pip install drifty` |
 | Slack / webhook alerts | ❌ | ❌ | ✅ v0.2.0 |
 | Continuous drift watch | ❌ | ✅ scheduled | ✅ v0.3.0 |
+| GitHub PR comment | ❌ | ❌ | ✅ v0.4.0 |
 
 ---
 
@@ -271,8 +306,8 @@ severity_overrides: {}            # per-resource type overrides
 
 - [x] `--notify slack` — post drift summary to Slack webhook _(v0.2.0)_
 - [x] `drifty watch` — continuous drift monitoring (poll on interval)
+- [x] GitHub PR comment integration
 - [ ] Azure and GCP provider support
-- [ ] GitHub PR comment integration
 - [ ] Drift history — persist findings to `.drifty/history.json`
 - [ ] `drifty ignore` — suppress known/accepted drift entries
 
