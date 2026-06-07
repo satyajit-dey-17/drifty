@@ -112,6 +112,15 @@ drifty history
 
 # 12. Show last 30 scans, high severity and above
 drifty history --last 30 --severity high
+
+# 13. Suppress a known/accepted drift
+drifty ignore aws_instance.api_server --reason "approved by security team"
+
+# 14. List all ignored resources
+drifty ignore --list
+
+# 15. Remove an ignore entry
+drifty ignore aws_instance.api_server --remove
 ```
 
 ---
@@ -270,6 +279,29 @@ drifty history --last 30 --severity high
 drifty history --output json
 ```
 
+### `drifty ignore`
+
+Manages the ignore list for suppressing known or accepted drift. Suppressed resources
+still appear in scan output under a dimmed **Suppressed** label — never silently hidden.
+
+```text
+Options:
+  RESOURCE            Resource address to ignore. Example: aws_instance.api_server
+  --workspace PATH    Terraform directory (default: current dir)
+  --reason TEXT       Reason for ignoring this resource
+  --remove            Remove a resource from the ignore list
+  --list              List all currently ignored resources
+```
+
+```bash
+drifty ignore aws_instance.api_server
+drifty ignore aws_instance.api_server --reason "approved by security team"
+drifty ignore aws_instance.api_server --remove
+drifty ignore --list
+```
+
+Ignore entries are persisted to `.drifty/ignore.yaml` with timestamp and author (`$USER`).
+
 ---
 
 ## Severity Rules
@@ -313,6 +345,7 @@ severity_overrides:
 | Continuous drift watch | ❌ | ✅ scheduled | ✅ v0.3.0 |
 | GitHub PR comment | ❌ | ❌ | ✅ v0.4.0 |
 | Drift history / trends | ❌ | ❌ | ✅ v0.5.0 |
+| Ignore / suppress drift | ❌ | ❌ | ✅ v0.6.0 |
 
 ---
 
@@ -336,8 +369,9 @@ severity_overrides: {}            # per-resource type overrides
 - [x] `drifty watch` — continuous drift monitoring (poll on interval)
 - [x] GitHub PR comment integration
 - [x] Drift history — persist findings to `.drifty/history.json`
+- [x] `drifty ignore` — suppress known/accepted drift entries
 - [ ] Azure and GCP provider support
-- [ ] `drifty ignore` — suppress known/accepted drift entries
+
 
 ---
 
