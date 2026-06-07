@@ -128,9 +128,11 @@ def cmd_scan(
     ),
     severity: str | None = typer.Option(
         None,
-        "--severity",
+        "--min-severity",
         "-s",
-        help="Minimum severity filter: critical | high | medium | low.",
+        help="Minimum severity threshold (critical | high | low). "
+             "Returns findings at this level and above. "
+             "E.g. --min-severity high returns high and critical findings.",
     ),
     output: str = typer.Option(
         "terminal",
@@ -160,7 +162,7 @@ def cmd_scan(
       [cyan]drifty scan --severity high --notify slack[/cyan]
     """
     # Validate output format
-    valid_outputs = ("terminal", "json", "markdown")
+    valid_outputs = ("terminal", "table", "json", "markdown")
     if output not in valid_outputs:
         console.print(
             f"[red]✗ Invalid output format:[/red] [bold]{output}[/bold]. "
@@ -225,7 +227,10 @@ def cmd_scan(
             )
 
     # ── Render ──────────────────────────────────────────────────────────────
-    render(findings, suppressed=suppressed, output_format=output, workspace=workspace)
+    render(findings, suppressed=suppressed, output_format=output, workspace=workspace, with_attribution=attribute)
+
+    if findings:
+        raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------
@@ -307,9 +312,10 @@ def cmd_report_pr(
     ),
     severity: str | None = typer.Option(
         None,
-        "--severity",
+        "--min-severity",
         "-s",
-        help="Minimum severity filter: critical | high | medium | low.",
+        help="Minimum severity threshold (critical | high | low). "
+             "Returns findings at this level and above.",
     ),
     token: str | None = typer.Option(
         None,
@@ -403,9 +409,10 @@ def cmd_history(
     ),
     severity: str | None = typer.Option(
         None,
-        "--severity",
+        "--min-severity",
         "-s",
-        help="Minimum severity filter: critical | high | medium | low.",
+        help="Minimum severity threshold (critical | high | low). "
+             "Returns findings at this level and above.",
     ),
     output: str = typer.Option(
         "terminal",

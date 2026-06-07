@@ -222,7 +222,7 @@ def _build_diff_map(plan_json: dict | None) -> dict[str, tuple[dict, dict]]:
 
     diff_map: dict[str, tuple[dict, dict]] = {}
 
-    for rc in plan_json.get("resource_changes", []):
+    for rc in plan_json.get("resource_drift", []):
         actions = rc.get("change", {}).get("actions", [])
         if "no-op" in actions:
             continue

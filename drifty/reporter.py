@@ -36,6 +36,7 @@ def render(
     output_format: str = "terminal",
     workspace: Path = Path("."),
     suppressed: list[DriftFinding] | None = None,
+    with_attribution: bool = False,
 ) -> None:
     """
     Dispatch to the correct renderer based on output_format.
@@ -45,7 +46,7 @@ def render(
     elif output_format == "markdown":
         _render_markdown(findings, workspace)
     else:
-        _render_terminal(findings, workspace, suppressed=suppressed or [])
+        _render_terminal(findings, workspace, suppressed=suppressed or [], with_attribution=with_attribution)
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +58,7 @@ def _render_terminal(
     findings: list[DriftFinding],
     workspace: Path,
     suppressed: list[DriftFinding] | None = None,
+    with_attribution: bool = False,
 ) -> None:
     console.print()
     console.print("[bold cyan]🔍 drifty — Terraform Drift Intelligence[/bold cyan]")
@@ -113,7 +115,7 @@ def _render_terminal(
 
     # Individual finding blocks
     for finding in sorted_findings:
-        _render_finding_block(finding)
+        _render_finding_block(finding, with_attribution=with_attribution)
 
     # Suppressed findings
     suppressed = suppressed or []
@@ -133,7 +135,7 @@ def _render_terminal(
     console.print()
 
 
-def _render_finding_block(finding: DriftFinding) -> None:
+def _render_finding_block(finding: DriftFinding, with_attribution: bool = False) -> None:
     """Render a single DriftFinding as a color-coded terminal block."""
     emoji = severity_emoji(finding.severity)
     badge = severity_badge(finding.severity)
@@ -163,9 +165,10 @@ def _render_finding_block(finding: DriftFinding) -> None:
         console.print(f"   [dim]Who:[/dim]      [yellow]{finding.attributed_to}[/yellow]")
         console.print(f"   [dim]When:[/dim]     {_format_timestamp(finding.attributed_at)}")
         console.print(f"   [dim]Action:[/dim]   [magenta]{finding.attributed_action}[/magenta]")
-    else:
+    elif with_attribution:
         no_attr = "attribution unavailable (event outside 90-day CloudTrail window)"
         console.print(f"   [dim]Who:[/dim]      [dim italic]{no_attr}[/dim italic]")
+
 
     # Remediation hint
     if finding.remediation_hint:
