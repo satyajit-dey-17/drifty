@@ -46,7 +46,9 @@ def render(
     elif output_format == "markdown":
         _render_markdown(findings, workspace)
     else:
-        _render_terminal(findings, workspace, suppressed=suppressed or [], with_attribution=with_attribution)
+        _render_terminal(
+            findings, workspace, suppressed=suppressed or [], with_attribution=with_attribution
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +170,6 @@ def _render_finding_block(finding: DriftFinding, with_attribution: bool = False)
     elif with_attribution:
         no_attr = "attribution unavailable (event outside 90-day CloudTrail window)"
         console.print(f"   [dim]Who:[/dim]      [dim italic]{no_attr}[/dim italic]")
-
 
     # Remediation hint
     if finding.remediation_hint:

@@ -131,8 +131,8 @@ def cmd_scan(
         "--min-severity",
         "-s",
         help="Minimum severity threshold (critical | high | low). "
-             "Returns findings at this level and above. "
-             "E.g. --min-severity high returns high and critical findings.",
+        "Returns findings at this level and above. "
+        "E.g. --min-severity high returns high and critical findings.",
     ),
     output: str = typer.Option(
         "terminal",
@@ -227,7 +227,13 @@ def cmd_scan(
             )
 
     # ── Render ──────────────────────────────────────────────────────────────
-    render(findings, suppressed=suppressed, output_format=output, workspace=workspace, with_attribution=attribute)
+    render(
+        findings,
+        suppressed=suppressed,
+        output_format=output,
+        workspace=workspace,
+        with_attribution=attribute,
+    )
 
     if findings:
         raise typer.Exit(code=1)
@@ -315,7 +321,7 @@ def cmd_report_pr(
         "--min-severity",
         "-s",
         help="Minimum severity threshold (critical | high | low). "
-             "Returns findings at this level and above.",
+        "Returns findings at this level and above.",
     ),
     token: str | None = typer.Option(
         None,
@@ -412,7 +418,7 @@ def cmd_history(
         "--min-severity",
         "-s",
         help="Minimum severity threshold (critical | high | low). "
-             "Returns findings at this level and above.",
+        "Returns findings at this level and above.",
     ),
     output: str = typer.Option(
         "terminal",
