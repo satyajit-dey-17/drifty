@@ -215,21 +215,21 @@ class TestBuildRemediationHint:
 
 class TestRunScan:
     def test_returns_empty_list_on_terraform_failure(self, tmp_path):
-        with patch("drifty.scanner._run_terraform", return_value=(None, "error")):
+        with patch("drifty.scanner._run_terraform", return_value=(None, None, "error")):
             findings, suppressed = run_scan(workspace=tmp_path)
         assert findings == []
         assert suppressed == []
 
     def test_returns_empty_list_when_no_drift(self, tmp_path):
         no_drift_lines = [json.dumps({"type": "version", "terraform": "1.7.0"})]
-        with patch("drifty.scanner._run_terraform", return_value=(no_drift_lines, "")):
+        with patch("drifty.scanner._run_terraform", return_value=(no_drift_lines, None, "")):
             findings, suppressed = run_scan(workspace=tmp_path)
         assert findings == []
         assert suppressed == []
 
     def test_run_scan_scores_findings(self, tmp_path):
         lines = _lines(SECURITY_GROUP_DRIFT, INSTANCE_DRIFT)
-        with patch("drifty.scanner._run_terraform", return_value=(lines, "")):
+        with patch("drifty.scanner._run_terraform", return_value=(lines, None, "")):
             findings, _ = run_scan(workspace=tmp_path)
         assert len(findings) == 2
         severities = {f.resource_type: f.severity for f in findings}
@@ -238,7 +238,7 @@ class TestRunScan:
 
     def test_severity_filter_removes_low_findings(self, tmp_path):
         lines = _lines(SECURITY_GROUP_DRIFT, TAG_ONLY_DRIFT)
-        with patch("drifty.scanner._run_terraform", return_value=(lines, "")):
+        with patch("drifty.scanner._run_terraform", return_value=(lines, None, "")):
             findings, _ = run_scan(workspace=tmp_path, severity_filter="high")
         resource_types = [f.resource_type for f in findings]
         assert "aws_security_group" in resource_types
@@ -251,7 +251,7 @@ class TestRunScan:
             "timestamp": "2026-06-03T14:22:11+00:00",
             "action": "ModifySecurityGroupRules",
         }
-        with patch("drifty.scanner._run_terraform", return_value=(lines, "")):
+        with patch("drifty.scanner._run_terraform", return_value=(lines, None, "")):
             with patch("drifty.cloudtrail.attribute_finding", return_value=mock_attribution):
                 findings, _ = run_scan(workspace=tmp_path, with_attribution=True)
         assert findings[0].attributed_to == "arn:aws:iam::123:user/test"

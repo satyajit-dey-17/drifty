@@ -6,6 +6,9 @@ Each line is a message object with a `type` field. We care about:
   - type == "resource_drift"     → a resource has drifted from state
   - type == "planned_change"     → used to cross-check drift (ignored for now)
   - type == "diagnostic"         → errors/warnings from terraform itself
+
+Attribute diffs are extracted from a saved plan file via `terraform show -json`,
+which provides full before/after values for each changed resource.
 """
 
 from __future__ import annotations
@@ -56,13 +59,14 @@ def run_scan(
 ) -> tuple[list[DriftFinding], list[DriftFinding]]:
     """
     Full scan pipeline:
-      1. Run terraform plan -refresh-only -json
-      2. Parse JSON Lines output into DriftFinding list
-      3. Score each finding (scorer.py)
-      4. Optionally attribute each finding (cloudtrail.py)
-      5. Apply severity filter
-      6. Filter against ignore list
-      7. Persist active findings to history
+      1. Run terraform plan -refresh-only -json -out=.drifty/refresh.tfplan
+      2. Run terraform show -json on the saved plan to get before/after diffs
+      3. Parse JSON Lines output into DriftFinding list
+      4. Score each finding (scorer.py)
+      5. Optionally attribute each finding (cloudtrail.py)
+      6. Apply severity filter
+      7. Filter against ignore list
+      8. Persist active findings to history
     """
     with Progress(
         SpinnerColumn(),
@@ -72,12 +76,12 @@ def run_scan(
         transient=True,
     ) as progress:
         progress.add_task("scan", total=None)
-        raw_output, error_output = _run_terraform(workspace)
+        raw_output, plan_json, error_output = _run_terraform(workspace)
 
     if raw_output is None:
         return [], []
 
-    findings = _parse_output(raw_output)
+    findings = _parse_output(raw_output, plan_json)
 
     if not findings:
         return [], []
@@ -124,14 +128,29 @@ def run_scan(
 # ---------------------------------------------------------------------------
 
 
-def _run_terraform(workspace: Path) -> tuple[list[str] | None, str]:
+def _run_terraform(workspace: Path) -> tuple[list[str] | None, dict | None, str]:
     """
-    Run `terraform plan -refresh-only -json` in the given workspace directory.
+    Step 1: terraform plan -refresh-only -json -out=.drifty/refresh.tfplan
+            Captures JSON Lines stream for drift detection + resource IDs.
 
-    Returns (lines, stderr) where lines is a list of raw JSON strings.
-    Returns (None, error_message) on failure.
+    Step 2: terraform show -json .drifty/refresh.tfplan
+            Extracts full before/after attribute values for changed resources.
+
+    Returns (json_lines, plan_json, stderr).
+    Returns (None, None, error_message) on failure.
     """
-    cmd = ["terraform", "plan", "-refresh-only", "-json", "-no-color"]
+    plan_dir = workspace / ".drifty"
+    plan_dir.mkdir(exist_ok=True)
+    plan_file = plan_dir / "refresh.tfplan"
+
+    cmd = [
+        "terraform",
+        "plan",
+        "-refresh-only",
+        "-json",
+        "-no-color",
+        f"-out={plan_file}",
+    ]
 
     try:
         result = subprocess.run(
@@ -147,23 +166,42 @@ def _run_terraform(workspace: Path) -> tuple[list[str] | None, str]:
             "  Install Terraform: [link=https://developer.hashicorp.com/terraform/install]"
             "https://developer.hashicorp.com/terraform/install[/link]"
         )
-        return None, "terraform not found"
+        return None, None, "terraform not found"
     except subprocess.TimeoutExpired:
         console.print(
             "[red]✗ terraform plan timed out after 5 minutes.[/red]\n"
             "  Try running [bold]terraform plan -refresh-only[/bold] manually to diagnose."
         )
-        return None, "timeout"
+        return None, None, "timeout"
 
     if result.returncode == 1:
         err_console.print("[red]✗ terraform plan failed:[/red]")
         _print_terraform_diagnostics(result.stdout)
         if result.stderr:
             console.print(f"[red]{result.stderr}[/red]")
-        return None, result.stderr
+        return None, None, result.stderr
 
     lines = [line for line in result.stdout.splitlines() if line.strip()]
-    return lines, result.stderr
+
+    # Step 2 — convert saved plan file to full JSON for before/after diffs
+    plan_json = None
+    if plan_file.exists():
+        try:
+            show_result = subprocess.run(
+                ["terraform", "show", "-json", "-no-color", str(plan_file)],
+                cwd=str(workspace),
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if show_result.returncode == 0:
+                plan_json = json.loads(show_result.stdout)
+        except Exception:
+            pass  # plan_json stays None — changed_attributes will be empty
+        finally:
+            plan_file.unlink(missing_ok=True)  # always clean up temp file
+
+    return lines, plan_json, result.stderr
 
 
 # ---------------------------------------------------------------------------
@@ -171,11 +209,38 @@ def _run_terraform(workspace: Path) -> tuple[list[str] | None, str]:
 # ---------------------------------------------------------------------------
 
 
-def _parse_output(output: list[str]) -> list[DriftFinding]:
-    findings = []
-    id_map: dict[str, str] = {}
+def _build_diff_map(plan_json: dict | None) -> dict[str, tuple[dict, dict]]:
+    """
+    Build a map of resource address → (before, after) from a saved plan JSON.
 
-    for line in output:  # no .splitlines() needed — already a list
+    terraform show -json <planfile> emits a "resource_changes" array where
+    each entry has change.before and change.after with full attribute values.
+    Only includes resources with actual changes (excludes no-op entries).
+    """
+    if not plan_json:
+        return {}
+
+    diff_map: dict[str, tuple[dict, dict]] = {}
+
+    for rc in plan_json.get("resource_changes", []):
+        actions = rc.get("change", {}).get("actions", [])
+        if "no-op" in actions:
+            continue
+        addr = rc.get("address", "")
+        before = rc.get("change", {}).get("before") or {}
+        after = rc.get("change", {}).get("after") or {}
+        if addr:
+            diff_map[addr] = (before, after)
+
+    return diff_map
+
+
+def _parse_output(output: list[str], plan_json: dict | None = None) -> list[DriftFinding]:
+    findings = []
+
+    # Pass 1: build address → real AWS ID map from refresh_complete hooks
+    id_map: dict[str, str] = {}
+    for line in output:
         line = line.strip()
         if not line:
             continue
@@ -191,7 +256,11 @@ def _parse_output(output: list[str]) -> list[DriftFinding]:
             if addr and id_value:
                 id_map[addr] = id_value
 
-    for line in output:  # second pass
+    # Build before/after diff map from saved plan JSON
+    diff_map = _build_diff_map(plan_json)
+
+    # Pass 2: process resource_drift messages with real IDs + attribute diffs
+    for line in output:
         line = line.strip()
         if not line:
             continue
@@ -201,14 +270,18 @@ def _parse_output(output: list[str]) -> list[DriftFinding]:
             continue
         if msg.get("type") != "resource_drift":
             continue
-        finding = _parse_drift_message(msg, id_map)
+        finding = _parse_drift_message(msg, id_map, diff_map)
         if finding:
             findings.append(finding)
 
     return findings
 
 
-def _parse_drift_message(msg: dict, id_map: dict[str, str] | None = None) -> DriftFinding | None:
+def _parse_drift_message(
+    msg: dict,
+    id_map: dict[str, str] | None = None,
+    diff_map: dict[str, tuple[dict, dict]] | None = None,
+) -> DriftFinding | None:
     change = msg.get("change", {})
     resource = change.get("resource", {})
 
@@ -219,10 +292,15 @@ def _parse_drift_message(msg: dict, id_map: dict[str, str] | None = None) -> Dri
     if not resource_type:
         return None
 
-    before = change.get("before") or {}
-    after = change.get("after") or {}
+    # before/after: prefer diff_map (from saved plan), fall back to inline
+    # (inline exists in mocked test data but not in real terraform output)
+    if diff_map and addr in diff_map:
+        before, after = diff_map[addr]
+    else:
+        before = change.get("before") or {}
+        after = change.get("after") or {}
 
-    # Use real AWS ID from refresh_complete map, fall back to before/after, then addr
+    # resource_id: prefer id_map, then inline before/after id field, then addr
     resource_id = (id_map or {}).get(addr) or after.get("id") or before.get("id") or addr
 
     changed_attributes = _diff_attributes(before, after)
