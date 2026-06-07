@@ -2,29 +2,28 @@
 Tests for drifty/notifiers/slack.py
 Uses httpx mock transport — no real HTTP calls made.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 from unittest.mock import MagicMock, patch
 
 import httpx
-import pytest
 
-from drifty.scanner import DriftFinding
 from drifty.notifiers.slack import (
-    notify_slack,
-    _build_payload,
     _build_finding_block,
-    _shorten_arn,
+    _build_payload,
     _format_value,
     _severity_summary_text,
+    _shorten_arn,
+    notify_slack,
 )
-
+from drifty.scanner import DriftFinding
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def make_finding(
     resource_type: str = "aws_security_group",
@@ -41,7 +40,8 @@ def make_finding(
         resource_type=resource_type,
         resource_name=resource_name,
         resource_id=resource_id,
-        changed_attributes=attrs or [
+        changed_attributes=attrs
+        or [
             {"attribute": "ingress.0.cidr_blocks", "before": ["10.0.0.0/8"], "after": ["0.0.0.0/0"]}
         ],
         severity=severity,
@@ -58,12 +58,14 @@ MOCK_WEBHOOK = "https://hooks.slack.com/services/TEST/TEST/TEST"
 def _mock_transport(status_code: int = 200, text: str = "ok") -> httpx.MockTransport:
     def handler(request):
         return httpx.Response(status_code, text=text)
+
     return httpx.MockTransport(handler)
 
 
 # ---------------------------------------------------------------------------
 # notify_slack — HTTP behaviour
 # ---------------------------------------------------------------------------
+
 
 class TestNotifySlack:
     def test_returns_true_on_success(self):
@@ -96,9 +98,12 @@ class TestNotifySlack:
             mock_post.return_value.raise_for_status = lambda: (_ for _ in ()).throw(
                 httpx.HTTPStatusError("400", request=None, response=mock_response)
             )
-            with patch("httpx.post", side_effect=httpx.HTTPStatusError(
-                "400", request=httpx.Request("POST", MOCK_WEBHOOK), response=mock_response
-            )):
+            with patch(
+                "httpx.post",
+                side_effect=httpx.HTTPStatusError(
+                    "400", request=httpx.Request("POST", MOCK_WEBHOOK), response=mock_response
+                ),
+            ):
                 result = notify_slack(findings, webhook_url=MOCK_WEBHOOK)
         assert result is False
 
@@ -132,6 +137,7 @@ class TestNotifySlack:
 # ---------------------------------------------------------------------------
 # _build_payload — structure validation
 # ---------------------------------------------------------------------------
+
 
 class TestBuildPayload:
     def test_payload_has_text_and_blocks(self):
@@ -184,7 +190,8 @@ class TestBuildPayload:
         payload = _build_payload([low, critical], Path("."))
         # Find section blocks with finding content
         section_texts = [
-            b["text"]["text"] for b in payload["blocks"]
+            b["text"]["text"]
+            for b in payload["blocks"]
             if b.get("type") == "section" and "CRITICAL" in b.get("text", {}).get("text", "")
         ]
         assert len(section_texts) >= 1
@@ -193,6 +200,7 @@ class TestBuildPayload:
 # ---------------------------------------------------------------------------
 # _build_finding_block
 # ---------------------------------------------------------------------------
+
 
 class TestBuildFindingBlock:
     def test_contains_resource_address(self):
@@ -231,6 +239,7 @@ class TestBuildFindingBlock:
 # _shorten_arn
 # ---------------------------------------------------------------------------
 
+
 class TestShortenArn:
     def test_user_arn_returns_username(self):
         assert _shorten_arn("arn:aws:iam::123456789:user/john.doe") == "john.doe"
@@ -248,6 +257,7 @@ class TestShortenArn:
 # ---------------------------------------------------------------------------
 # _format_value
 # ---------------------------------------------------------------------------
+
 
 class TestFormatValue:
     def test_none_returns_null(self):
@@ -273,6 +283,7 @@ class TestFormatValue:
 # ---------------------------------------------------------------------------
 # _severity_summary_text
 # ---------------------------------------------------------------------------
+
 
 class TestSeveritySummaryText:
     def test_single_critical(self):

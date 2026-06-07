@@ -1,13 +1,17 @@
 """
 Tests for scorer.py — severity rules, tag-only detection, threshold logic.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from drifty.scanner import DriftFinding
 from drifty.scorer import (
-    CRITICAL, HIGH, MEDIUM, LOW,
+    CRITICAL,
+    HIGH,
+    LOW,
+    MEDIUM,
     _is_tag_only_change,
     meets_threshold,
     score,
@@ -21,9 +25,7 @@ def make_finding(resource_type: str, attrs: list | None = None) -> DriftFinding:
         resource_type=resource_type,
         resource_name="test",
         resource_id="test-id",
-        changed_attributes=attrs or [
-            {"attribute": "some_attr", "before": "old", "after": "new"}
-        ],
+        changed_attributes=attrs or [{"attribute": "some_attr", "before": "old", "after": "new"}],
     )
 
 
@@ -35,32 +37,42 @@ def tag_change(attr: str = "tags") -> list[dict]:
 # Exact severity map matches
 # ---------------------------------------------------------------------------
 
+
 class TestSeverityMapExactMatch:
-    @pytest.mark.parametrize("resource_type", [
-        "aws_iam_role_policy",
-        "aws_iam_policy",
-        "aws_security_group",
-        "aws_security_group_rule",
-        "aws_s3_bucket_policy",
-        "aws_s3_bucket_public_access_block",
-    ])
+    @pytest.mark.parametrize(
+        "resource_type",
+        [
+            "aws_iam_role_policy",
+            "aws_iam_policy",
+            "aws_security_group",
+            "aws_security_group_rule",
+            "aws_s3_bucket_policy",
+            "aws_s3_bucket_public_access_block",
+        ],
+    )
     def test_critical_resources(self, resource_type):
         assert score(make_finding(resource_type)) == CRITICAL
 
-    @pytest.mark.parametrize("resource_type", [
-        "aws_instance",
-        "aws_rds_instance",
-        "aws_lb",
-        "aws_alb",
-    ])
+    @pytest.mark.parametrize(
+        "resource_type",
+        [
+            "aws_instance",
+            "aws_rds_instance",
+            "aws_lb",
+            "aws_alb",
+        ],
+    )
     def test_high_resources(self, resource_type):
         assert score(make_finding(resource_type)) == HIGH
 
-    @pytest.mark.parametrize("resource_type", [
-        "aws_lambda_function",
-        "aws_autoscaling_group",
-        "aws_cloudwatch_metric_alarm",
-    ])
+    @pytest.mark.parametrize(
+        "resource_type",
+        [
+            "aws_lambda_function",
+            "aws_autoscaling_group",
+            "aws_cloudwatch_metric_alarm",
+        ],
+    )
     def test_medium_resources(self, resource_type):
         assert score(make_finding(resource_type)) == MEDIUM
 
@@ -68,6 +80,7 @@ class TestSeverityMapExactMatch:
 # ---------------------------------------------------------------------------
 # Tag-only downgrade
 # ---------------------------------------------------------------------------
+
 
 class TestTagOnlyDowngrade:
     def test_instance_tag_only_is_low(self):
@@ -79,16 +92,20 @@ class TestTagOnlyDowngrade:
         assert score(f) == LOW
 
     def test_instance_non_tag_change_is_high(self):
-        f = make_finding("aws_instance", [
-            {"attribute": "instance_type", "before": "t3.medium", "after": "t3.large"}
-        ])
+        f = make_finding(
+            "aws_instance",
+            [{"attribute": "instance_type", "before": "t3.medium", "after": "t3.large"}],
+        )
         assert score(f) == HIGH
 
     def test_mixed_tag_and_non_tag_is_not_downgraded(self):
-        f = make_finding("aws_instance", [
-            {"attribute": "tags.Name",     "before": "old", "after": "new"},
-            {"attribute": "instance_type", "before": "t3.medium", "after": "t3.large"},
-        ])
+        f = make_finding(
+            "aws_instance",
+            [
+                {"attribute": "tags.Name", "before": "old", "after": "new"},
+                {"attribute": "instance_type", "before": "t3.medium", "after": "t3.large"},
+            ],
+        )
         # Mixed change: instance_type is not a tag attr → should NOT downgrade
         assert score(f) == HIGH
 
@@ -105,6 +122,7 @@ class TestTagOnlyDowngrade:
 # ---------------------------------------------------------------------------
 # Prefix fallback
 # ---------------------------------------------------------------------------
+
 
 class TestPrefixFallback:
     def test_unknown_iam_resource_is_critical(self):
@@ -123,6 +141,7 @@ class TestPrefixFallback:
 # ---------------------------------------------------------------------------
 # Config overrides
 # ---------------------------------------------------------------------------
+
 
 class TestConfigOverrides:
     def test_override_raises_lambda_to_high(self):
@@ -146,19 +165,23 @@ class TestConfigOverrides:
 # meets_threshold
 # ---------------------------------------------------------------------------
 
+
 class TestMeetsThreshold:
-    @pytest.mark.parametrize("severity,threshold,expected", [
-        ("critical", "critical", True),
-        ("critical", "high",     True),
-        ("critical", "medium",   True),
-        ("critical", "low",      True),
-        ("high",     "critical", False),
-        ("high",     "high",     True),
-        ("high",     "medium",   True),
-        ("medium",   "high",     False),
-        ("low",      "high",     False),
-        ("low",      "low",      True),
-    ])
+    @pytest.mark.parametrize(
+        "severity,threshold,expected",
+        [
+            ("critical", "critical", True),
+            ("critical", "high", True),
+            ("critical", "medium", True),
+            ("critical", "low", True),
+            ("high", "critical", False),
+            ("high", "high", True),
+            ("high", "medium", True),
+            ("medium", "high", False),
+            ("low", "high", False),
+            ("low", "low", True),
+        ],
+    )
     def test_threshold_matrix(self, severity, threshold, expected):
         assert meets_threshold(severity, threshold) == expected
 
@@ -166,6 +189,7 @@ class TestMeetsThreshold:
 # ---------------------------------------------------------------------------
 # Display helpers
 # ---------------------------------------------------------------------------
+
 
 class TestDisplayHelpers:
     def test_severity_emoji_critical(self):
@@ -185,6 +209,7 @@ class TestDisplayHelpers:
 # _is_tag_only_change
 # ---------------------------------------------------------------------------
 
+
 class TestIsTagOnlyChange:
     def test_pure_tag_change(self):
         f = make_finding("aws_instance", tag_change("tags"))
@@ -195,9 +220,9 @@ class TestIsTagOnlyChange:
         assert _is_tag_only_change(f) is True
 
     def test_non_tag_attribute(self):
-        f = make_finding("aws_instance", [
-            {"attribute": "instance_type", "before": "a", "after": "b"}
-        ])
+        f = make_finding(
+            "aws_instance", [{"attribute": "instance_type", "before": "a", "after": "b"}]
+        )
         assert _is_tag_only_change(f) is False
 
     def test_empty_attributes(self):

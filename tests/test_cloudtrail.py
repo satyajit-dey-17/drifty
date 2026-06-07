@@ -1,23 +1,21 @@
 """
 Tests for cloudtrail.py — attribution logic using moto to mock AWS CloudTrail.
 """
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import boto3
-import pytest
 from moto import mock_aws
 
-from drifty.scanner import DriftFinding
 from drifty.cloudtrail import (
     _build_lookup_values,
     _extract_principal,
     _is_automated_service_event,
     format_attribution,
 )
+from drifty.scanner import DriftFinding
 
 
 def make_finding(resource_type: str, resource_id: str) -> DriftFinding:
@@ -32,6 +30,7 @@ def make_finding(resource_type: str, resource_id: str) -> DriftFinding:
 # ---------------------------------------------------------------------------
 # _build_lookup_values
 # ---------------------------------------------------------------------------
+
 
 class TestBuildLookupValues:
     def test_security_group_returns_id_only(self):
@@ -57,6 +56,7 @@ class TestBuildLookupValues:
 # _extract_principal
 # ---------------------------------------------------------------------------
 
+
 class TestExtractPrincipal:
     def _make_event(self, username="", arn=None, identity_type="IAMUser"):
         ct_event = {"userIdentity": {"type": identity_type}}
@@ -68,10 +68,7 @@ class TestExtractPrincipal:
         }
 
     def test_prefers_arn_from_cloudtrail_event(self):
-        event = self._make_event(
-            username="john.doe",
-            arn="arn:aws:iam::123:user/john.doe"
-        )
+        event = self._make_event(username="john.doe", arn="arn:aws:iam::123:user/john.doe")
         result = _extract_principal(event)
         assert result == "arn:aws:iam::123:user/john.doe"
 
@@ -98,6 +95,7 @@ class TestExtractPrincipal:
 # _is_automated_service_event
 # ---------------------------------------------------------------------------
 
+
 class TestIsAutomatedServiceEvent:
     def test_elb_service_is_automated(self):
         assert _is_automated_service_event("elasticloadbalancing.amazonaws.com") is True
@@ -115,6 +113,7 @@ class TestIsAutomatedServiceEvent:
 # ---------------------------------------------------------------------------
 # format_attribution
 # ---------------------------------------------------------------------------
+
 
 class TestFormatAttribution:
     def test_with_full_attribution(self):
@@ -137,10 +136,12 @@ class TestFormatAttribution:
 # attribute_finding — moto mock (no real AWS needed)
 # ---------------------------------------------------------------------------
 
+
 @mock_aws
 def test_attribute_finding_handles_missing_profile():
     """attribute_finding with a nonexistent profile should return None gracefully."""
     from drifty.cloudtrail import attribute_finding
+
     f = make_finding("aws_security_group", "sg-0abc1234")
     # "nonexistent-profile" will raise ProfileNotFound → should return None
     result = attribute_finding(f, profile="nonexistent-profile")

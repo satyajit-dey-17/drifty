@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -36,7 +35,9 @@ def another_finding():
         resource_type="aws_instance",
         resource_name="api_server",
         resource_id="i-0def5678",
-        changed_attributes=[{"attribute": "instance_type", "before": "t3.medium", "after": "t3.large"}],
+        changed_attributes=[
+            {"attribute": "instance_type", "before": "t3.medium", "after": "t3.large"}
+        ],
         severity="high",
         attributed_to=None,
         attributed_at=None,
@@ -48,6 +49,7 @@ def another_finding():
 # ---------------------------------------------------------------------------
 # _hash_finding
 # ---------------------------------------------------------------------------
+
 
 def test_hash_is_deterministic(finding):
     assert _hash_finding(finding) == _hash_finding(finding)
@@ -70,6 +72,7 @@ def test_hash_ignores_attribution_fields(finding):
 # load_state
 # ---------------------------------------------------------------------------
 
+
 def test_load_state_returns_empty_default_when_no_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     state = load_state()
@@ -81,7 +84,14 @@ def test_load_state_reads_existing_file(tmp_path, monkeypatch):
     state_dir = tmp_path / ".drifty"
     state_dir.mkdir()
     state_file = state_dir / "state.json"
-    state_file.write_text(json.dumps({"last_scan": "2026-06-06T10:00:00Z", "known_findings": {"aws_security_group.main": "abc123"}}))
+    state_file.write_text(
+        json.dumps(
+            {
+                "last_scan": "2026-06-06T10:00:00Z",
+                "known_findings": {"aws_security_group.main": "abc123"},
+            }
+        )
+    )
 
     state = load_state()
     assert state["known_findings"]["aws_security_group.main"] == "abc123"
@@ -90,6 +100,7 @@ def test_load_state_reads_existing_file(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # save_state
 # ---------------------------------------------------------------------------
+
 
 def test_save_state_creates_dir_and_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
@@ -115,6 +126,7 @@ def test_save_state_overwrites_existing(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # diff_findings
 # ---------------------------------------------------------------------------
+
 
 def test_diff_returns_all_when_state_empty(finding, another_finding):
     state = {"last_scan": None, "known_findings": {}}
@@ -149,6 +161,7 @@ def test_diff_detects_new_resource(finding, another_finding):
 # build_known_findings
 # ---------------------------------------------------------------------------
 
+
 def test_build_known_findings_keys(finding, another_finding):
     known = build_known_findings([finding, another_finding])
     assert "aws_security_group.main" in known
@@ -158,4 +171,3 @@ def test_build_known_findings_keys(finding, another_finding):
 def test_build_known_findings_values_are_hashes(finding):
     known = build_known_findings([finding])
     assert known["aws_security_group.main"] == _hash_finding(finding)
-    

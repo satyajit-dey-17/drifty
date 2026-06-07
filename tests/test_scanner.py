@@ -2,23 +2,19 @@
 Tests for scanner.py — drift parsing and the run_scan pipeline.
 Uses mock terraform JSON output instead of a real terraform binary.
 """
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from drifty.scanner import (
-    DriftFinding,
+    _build_remediation_hint,
     _diff_attributes,
     _parse_drift_message,
     _parse_output,
-    _build_remediation_hint,
     run_scan,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -35,7 +31,7 @@ SECURITY_GROUP_DRIFT = {
         },
         "action": "update",
         "before": {"id": "sg-0abc1234", "ingress": [{"cidr_blocks": ["10.0.0.0/8"]}]},
-        "after":  {"id": "sg-0abc1234", "ingress": [{"cidr_blocks": ["0.0.0.0/0"]}]},
+        "after": {"id": "sg-0abc1234", "ingress": [{"cidr_blocks": ["0.0.0.0/0"]}]},
     },
 }
 
@@ -50,7 +46,7 @@ INSTANCE_DRIFT = {
         },
         "action": "update",
         "before": {"id": "i-0def5678", "instance_type": "t3.medium"},
-        "after":  {"id": "i-0def5678", "instance_type": "t3.large"},
+        "after": {"id": "i-0def5678", "instance_type": "t3.large"},
     },
 }
 
@@ -65,7 +61,7 @@ TAG_ONLY_DRIFT = {
         },
         "action": "update",
         "before": {"id": "assets-bucket-prod", "tags": {"LastModified": "2026-05-15"}},
-        "after":  {"id": "assets-bucket-prod", "tags": {"LastModified": "2026-06-01"}},
+        "after": {"id": "assets-bucket-prod", "tags": {"LastModified": "2026-06-01"}},
     },
 }
 
@@ -79,10 +75,11 @@ def _lines(*dicts) -> list[str]:
 # _diff_attributes
 # ---------------------------------------------------------------------------
 
+
 class TestDiffAttributes:
     def test_single_changed_attribute(self):
         before = {"instance_type": "t3.medium", "id": "i-123"}
-        after  = {"instance_type": "t3.large",  "id": "i-123"}
+        after = {"instance_type": "t3.large", "id": "i-123"}
         result = _diff_attributes(before, after)
         assert len(result) == 1
         assert result[0]["attribute"] == "instance_type"
@@ -96,14 +93,14 @@ class TestDiffAttributes:
 
     def test_multiple_changed_attributes(self):
         before = {"a": 1, "b": 2, "c": 3}
-        after  = {"a": 9, "b": 2, "c": 7}
+        after = {"a": 9, "b": 2, "c": 7}
         result = _diff_attributes(before, after)
         changed_keys = {r["attribute"] for r in result}
         assert changed_keys == {"a", "c"}
 
     def test_skips_internal_keys(self):
         before = {"_internal": "x", "name": "old"}
-        after  = {"_internal": "y", "name": "new"}
+        after = {"_internal": "y", "name": "new"}
         result = _diff_attributes(before, after)
         keys = [r["attribute"] for r in result]
         assert "_internal" not in keys
@@ -111,13 +108,13 @@ class TestDiffAttributes:
 
     def test_added_attribute(self):
         before = {"id": "i-123"}
-        after  = {"id": "i-123", "new_field": "value"}
+        after = {"id": "i-123", "new_field": "value"}
         result = _diff_attributes(before, after)
         assert any(r["attribute"] == "new_field" for r in result)
 
     def test_removed_attribute(self):
         before = {"id": "i-123", "old_field": "value"}
-        after  = {"id": "i-123"}
+        after = {"id": "i-123"}
         result = _diff_attributes(before, after)
         assert any(r["attribute"] == "old_field" for r in result)
 
@@ -125,6 +122,7 @@ class TestDiffAttributes:
 # ---------------------------------------------------------------------------
 # _parse_drift_message
 # ---------------------------------------------------------------------------
+
 
 class TestParseDriftMessage:
     def test_parses_security_group(self):
@@ -160,6 +158,7 @@ class TestParseDriftMessage:
 # _parse_output (JSON Lines parser)
 # ---------------------------------------------------------------------------
 
+
 class TestParseOutput:
     def test_parses_multiple_drifts(self):
         lines = _lines(SECURITY_GROUP_DRIFT, INSTANCE_DRIFT)
@@ -194,6 +193,7 @@ class TestParseOutput:
 # _build_remediation_hint
 # ---------------------------------------------------------------------------
 
+
 class TestBuildRemediationHint:
     def test_importable_resource_returns_import_command(self):
         hint = _build_remediation_hint("aws_security_group", "main", "sg-0abc1234")
@@ -212,22 +212,25 @@ class TestBuildRemediationHint:
 # run_scan integration (mocked subprocess)
 # ---------------------------------------------------------------------------
 
+
 class TestRunScan:
     def test_returns_empty_list_on_terraform_failure(self, tmp_path):
         with patch("drifty.scanner._run_terraform", return_value=(None, "error")):
-            findings = run_scan(workspace=tmp_path)
+            findings, suppressed = run_scan(workspace=tmp_path)
         assert findings == []
+        assert suppressed == []
 
     def test_returns_empty_list_when_no_drift(self, tmp_path):
         no_drift_lines = [json.dumps({"type": "version", "terraform": "1.7.0"})]
         with patch("drifty.scanner._run_terraform", return_value=(no_drift_lines, "")):
-            findings = run_scan(workspace=tmp_path)
+            findings, suppressed = run_scan(workspace=tmp_path)
         assert findings == []
+        assert suppressed == []
 
     def test_run_scan_scores_findings(self, tmp_path):
         lines = _lines(SECURITY_GROUP_DRIFT, INSTANCE_DRIFT)
         with patch("drifty.scanner._run_terraform", return_value=(lines, "")):
-            findings = run_scan(workspace=tmp_path)
+            findings, _ = run_scan(workspace=tmp_path)
         assert len(findings) == 2
         severities = {f.resource_type: f.severity for f in findings}
         assert severities["aws_security_group"] == "critical"
@@ -236,7 +239,7 @@ class TestRunScan:
     def test_severity_filter_removes_low_findings(self, tmp_path):
         lines = _lines(SECURITY_GROUP_DRIFT, TAG_ONLY_DRIFT)
         with patch("drifty.scanner._run_terraform", return_value=(lines, "")):
-            findings = run_scan(workspace=tmp_path, severity_filter="high")
+            findings, _ = run_scan(workspace=tmp_path, severity_filter="high")
         resource_types = [f.resource_type for f in findings]
         assert "aws_security_group" in resource_types
         assert "aws_s3_bucket" not in resource_types
@@ -250,6 +253,6 @@ class TestRunScan:
         }
         with patch("drifty.scanner._run_terraform", return_value=(lines, "")):
             with patch("drifty.cloudtrail.attribute_finding", return_value=mock_attribution):
-                findings = run_scan(workspace=tmp_path, with_attribution=True)
+                findings, _ = run_scan(workspace=tmp_path, with_attribution=True)
         assert findings[0].attributed_to == "arn:aws:iam::123:user/test"
         assert findings[0].attributed_action == "ModifySecurityGroupRules"

@@ -35,6 +35,7 @@ def render(
     findings: list[DriftFinding],
     output_format: str = "terminal",
     workspace: Path = Path("."),
+    suppressed: list[DriftFinding] | None = None,
 ) -> None:
     """
     Dispatch to the correct renderer based on output_format.
@@ -44,7 +45,7 @@ def render(
     elif output_format == "markdown":
         _render_markdown(findings, workspace)
     else:
-        _render_terminal(findings, workspace)
+        _render_terminal(findings, workspace, suppressed=suppressed or [])
 
 
 # ---------------------------------------------------------------------------
@@ -52,7 +53,11 @@ def render(
 # ---------------------------------------------------------------------------
 
 
-def _render_terminal(findings: list[DriftFinding], workspace: Path) -> None:
+def _render_terminal(
+    findings: list[DriftFinding],
+    workspace: Path,
+    suppressed: list[DriftFinding] | None = None,
+) -> None:
     console.print()
     console.print("[bold cyan]🔍 drifty — Terraform Drift Intelligence[/bold cyan]")
     console.print(
@@ -69,6 +74,16 @@ def _render_terminal(findings: list[DriftFinding], workspace: Path) -> None:
                 border_style="green",
             )
         )
+        if suppressed:
+            console.print()
+            console.print(
+                f"[dim]── {len(suppressed)} finding(s) suppressed by ignore list ──[/dim]"
+            )
+            for f in suppressed:
+                addr = f"{f.resource_type}.{f.resource_name}"
+                emoji = severity_emoji(f.severity)
+                console.print(f"[dim]   ⊘  {emoji} {addr}  ({f.resource_id})[/dim]")
+            console.print()
         return
 
     # Sort: critical first
@@ -99,6 +114,16 @@ def _render_terminal(findings: list[DriftFinding], workspace: Path) -> None:
     # Individual finding blocks
     for finding in sorted_findings:
         _render_finding_block(finding)
+
+    # Suppressed findings
+    suppressed = suppressed or []
+    if suppressed:
+        console.print(f"[dim]── {len(suppressed)} finding(s) suppressed by ignore list ──[/dim]")
+        for f in suppressed:
+            addr = f"{f.resource_type}.{f.resource_name}"
+            emoji = severity_emoji(f.severity)
+            console.print(f"[dim]   ⊘  {emoji} {addr}  ({f.resource_id})[/dim]")
+        console.print()
 
     # Footer
     console.print(Rule(style="dim"))
@@ -267,7 +292,7 @@ def _render_markdown(findings: list[DriftFinding], workspace: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# report command entry point (Step 7 wires this in)
+# report command entry point
 # ---------------------------------------------------------------------------
 
 

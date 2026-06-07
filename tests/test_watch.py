@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -29,7 +29,9 @@ def low_finding():
         resource_type="aws_s3_bucket",
         resource_name="assets",
         resource_id="assets-bucket-prod",
-        changed_attributes=[{"attribute": "tags.LastModified", "before": "2026-05-15", "after": "2026-06-01"}],
+        changed_attributes=[
+            {"attribute": "tags.LastModified", "before": "2026-05-15", "after": "2026-06-01"}
+        ],
         severity="low",
         attributed_to=None,
         attributed_at=None,
@@ -41,6 +43,7 @@ def low_finding():
 # ---------------------------------------------------------------------------
 # _meets_threshold
 # ---------------------------------------------------------------------------
+
 
 def test_meets_threshold_exact_match(critical_finding):
     assert _meets_threshold(critical_finding, "critical") is True
@@ -61,6 +64,7 @@ def test_meets_threshold_equal(low_finding):
 # ---------------------------------------------------------------------------
 # _run_cycle
 # ---------------------------------------------------------------------------
+
 
 def test_run_cycle_no_new_drift(tmp_path, monkeypatch, critical_finding):
     monkeypatch.chdir(tmp_path)
@@ -90,7 +94,9 @@ def test_run_cycle_no_new_drift(tmp_path, monkeypatch, critical_finding):
     notifier.send.assert_not_called()
 
 
-def test_run_cycle_new_drift_triggers_notifier(tmp_path, monkeypatch, critical_finding, low_finding):
+def test_run_cycle_new_drift_triggers_notifier(
+    tmp_path, monkeypatch, critical_finding, low_finding
+):
     monkeypatch.chdir(tmp_path)
 
     # First cycle — only low finding known
@@ -172,4 +178,3 @@ def test_run_cycle_saves_state_after_scan(tmp_path, monkeypatch, critical_findin
 
     state_file = tmp_path / ".drifty" / "state.json"
     assert state_file.exists()
-    

@@ -19,9 +19,11 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from drifty.history import append_findings
+from drifty.ignore import filter_findings
 
 console = Console()
 err_console = Console(stderr=True)
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -30,15 +32,15 @@ err_console = Console(stderr=True)
 
 @dataclass
 class DriftFinding:
-    resource_type: str  # e.g. "aws_security_group"
-    resource_name: str  # e.g. "main"
-    resource_id: str  # e.g. "sg-0abc1234"
-    changed_attributes: list[dict]  # [{attribute, before, after}, ...]
-    severity: str = "low"  # filled in by scorer.py
-    attributed_to: str | None = None  # IAM principal
-    attributed_at: str | None = None  # ISO timestamp
-    attributed_action: str | None = None  # AWS API action
-    remediation_hint: str | None = None  # terraform import or HCL fix
+    resource_type: str
+    resource_name: str
+    resource_id: str
+    changed_attributes: list[dict]
+    severity: str = "low"
+    attributed_to: str | None = None
+    attributed_at: str | None = None
+    attributed_action: str | None = None
+    remediation_hint: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +53,7 @@ def run_scan(
     profile: str = "default",
     with_attribution: bool = False,
     severity_filter: str | None = None,
-) -> list[DriftFinding]:
+) -> tuple[list[DriftFinding], list[DriftFinding]]:
     """
     Full scan pipeline:
       1. Run terraform plan -refresh-only -json
@@ -59,6 +61,8 @@ def run_scan(
       3. Score each finding (scorer.py)
       4. Optionally attribute each finding (cloudtrail.py)
       5. Apply severity filter
+      6. Filter against ignore list
+      7. Persist active findings to history
     """
     with Progress(
         SpinnerColumn(),
@@ -71,13 +75,12 @@ def run_scan(
         raw_output, error_output = _run_terraform(workspace)
 
     if raw_output is None:
-        # _run_terraform already printed the error
-        return []
+        return [], []
 
     findings = _parse_output(raw_output)
 
     if not findings:
-        return []
+        return [], []
 
     # Score every finding
     from drifty.scorer import score
@@ -111,8 +114,9 @@ def run_scan(
         threshold = severity_order.get(severity_filter, 3)
         findings = [f for f in findings if severity_order.get(f.severity, 3) <= threshold]
 
-    append_findings(findings, workspace)
-    return findings
+    active, suppressed = filter_findings(findings, workspace)
+    append_findings(active, workspace)
+    return active, suppressed
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +139,7 @@ def _run_terraform(workspace: Path) -> tuple[list[str] | None, str]:
             cwd=str(workspace),
             capture_output=True,
             text=True,
-            timeout=300,  # 5-minute timeout
+            timeout=300,
         )
     except FileNotFoundError:
         console.print(
@@ -151,11 +155,8 @@ def _run_terraform(workspace: Path) -> tuple[list[str] | None, str]:
         )
         return None, "timeout"
 
-    # terraform plan exits with code 2 when there are changes (that's normal).
-    # Exit code 1 means a real error.
     if result.returncode == 1:
         err_console.print("[red]✗ terraform plan failed:[/red]")
-        # Extract human-readable diagnostics from the JSON stream if possible
         _print_terraform_diagnostics(result.stdout)
         if result.stderr:
             console.print(f"[red]{result.stderr}[/red]")
@@ -171,14 +172,6 @@ def _run_terraform(workspace: Path) -> tuple[list[str] | None, str]:
 
 
 def _parse_output(lines: list[str]) -> list[DriftFinding]:
-    """
-    Parse terraform's JSON Lines output and extract resource_drift entries.
-
-    Terraform JSON message types we handle:
-      - resource_drift     → the resource we care about
-      - diagnostic         → log warnings/errors from terraform
-      - outputs / summary  → ignored
-    """
     findings: list[DriftFinding] = []
 
     for line in lines:
@@ -205,25 +198,6 @@ def _parse_output(lines: list[str]) -> list[DriftFinding]:
 
 
 def _parse_drift_message(msg: dict) -> DriftFinding | None:
-    """
-    Convert a single resource_drift JSON message into a DriftFinding.
-
-    Terraform resource_drift message structure:
-    {
-      "type": "resource_drift",
-      "change": {
-        "resource": {
-          "addr":          "aws_security_group.main",
-          "resource_type": "aws_security_group",
-          "resource_name": "main",
-          "provider_name": "registry.terraform.io/hashicorp/aws"
-        },
-        "action": "update",
-        "before": { ... resource attributes before ... },
-        "after":  { ... resource attributes after  ... }
-      }
-    }
-    """
     change = msg.get("change", {})
     resource = change.get("resource", {})
 
@@ -237,9 +211,7 @@ def _parse_drift_message(msg: dict) -> DriftFinding | None:
     if not resource_type:
         return None
 
-    # Extract resource ID from common terraform id fields
     resource_id = after.get("id") or before.get("id") or addr
-
     changed_attributes = _diff_attributes(before, after)
     remediation = _build_remediation_hint(resource_type, resource_name, resource_id)
 
@@ -253,11 +225,6 @@ def _parse_drift_message(msg: dict) -> DriftFinding | None:
 
 
 def _diff_attributes(before: dict, after: dict) -> list[dict]:
-    """
-    Compare before/after attribute dicts and return a list of changes.
-    Skips internal Terraform metadata keys (prefixed with `_`).
-    Only includes keys that actually changed value.
-    """
     changed = []
     all_keys = set(before.keys()) | set(after.keys())
 
@@ -267,13 +234,7 @@ def _diff_attributes(before: dict, after: dict) -> list[dict]:
         val_before = before.get(key)
         val_after = after.get(key)
         if val_before != val_after:
-            changed.append(
-                {
-                    "attribute": key,
-                    "before": val_before,
-                    "after": val_after,
-                }
-            )
+            changed.append({"attribute": key, "before": val_before, "after": val_after})
 
     return changed
 
@@ -283,14 +244,8 @@ def _build_remediation_hint(
     resource_name: str,
     resource_id: str,
 ) -> str:
-    """
-    Generate a remediation hint string based on resource type.
-    For most resources: suggest terraform import.
-    For tag-only drifts: suggest reconciling via terraform apply.
-    """
     addr = f"{resource_type}.{resource_name}"
 
-    # Resources that support terraform import
     importable = {
         "aws_security_group",
         "aws_security_group_rule",
@@ -320,7 +275,6 @@ def _build_remediation_hint(
 
 
 def _print_terraform_diagnostics(stdout: str) -> None:
-    """Print human-readable diagnostics from terraform JSON output on failure."""
     for line in stdout.splitlines():
         try:
             msg = json.loads(line)

@@ -19,6 +19,7 @@ from drifty.config import (
 )
 from drifty.github import post_pr_comment  # add this
 from drifty.history import load_history, most_drifted_resources
+from drifty.ignore import add_ignore, load_ignores, remove_ignore
 from drifty.watch import cmd_watch
 
 app = typer.Typer(
@@ -192,7 +193,7 @@ def cmd_scan(
     from drifty.reporter import render
     from drifty.scanner import run_scan
 
-    findings = run_scan(
+    findings, suppressed = run_scan(
         workspace=workspace,
         profile=profile,
         with_attribution=attribute,
@@ -224,7 +225,7 @@ def cmd_scan(
             )
 
     # ── Render ──────────────────────────────────────────────────────────────
-    render(findings, output_format=output, workspace=workspace)
+    render(findings, suppressed=suppressed, output_format=output, workspace=workspace)
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +275,7 @@ def cmd_report(
     from drifty.reporter import generate_report
     from drifty.scanner import run_scan
 
-    findings = run_scan(workspace=workspace, profile="default")
+    findings, _ = run_scan(workspace=workspace, profile="default")
     generate_report(findings, format=format, output_file=output_file, workspace=workspace)
 
 
@@ -342,15 +343,15 @@ def cmd_report_pr(
     """
     from drifty.scanner import run_scan
 
-    findings = run_scan(
+    findings, suppressed = run_scan(
         workspace=workspace,
         profile=profile,
         with_attribution=attribute,
         severity_filter=severity,
     )
-
     success = post_pr_comment(
         findings,
+        suppressed=suppressed,
         workspace=workspace,
         github_token=token,
         repository=repo,
@@ -490,6 +491,99 @@ def cmd_history(
                 f"{emoji} {r['severity']}"
             )
     console.print()
+
+
+# ---------------------------------------------------------------------------
+# drifty ignore
+# ---------------------------------------------------------------------------
+
+
+@app.command("ignore")
+def cmd_ignore(
+    resource: str | None = typer.Argument(
+        None,
+        help="Resource address to ignore. Example: aws_instance.api_server",
+        metavar="RESOURCE",
+    ),
+    workspace: Path = typer.Option(
+        Path("."),
+        "--workspace",
+        "-w",
+        help="Path to Terraform workspace directory.",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    reason: str = typer.Option(
+        "",
+        "--reason",
+        "-r",
+        help="Reason for ignoring this resource.",
+    ),
+    remove: bool = typer.Option(
+        False,
+        "--remove",
+        help="Remove a resource from the ignore list.",
+    ),
+    list_all: bool = typer.Option(
+        False,
+        "--list",
+        "-l",
+        help="List all currently ignored resources.",
+    ),
+) -> None:
+    """
+    Manage the drifty ignore list.
+
+    Suppressed resources still appear in scan output under a
+    [dim]Suppressed[/dim] label — they are never silently hidden.
+
+    [bold]Examples:[/bold]
+
+      [cyan]drifty ignore aws_instance.api_server[/cyan]
+
+      [cyan]drifty ignore aws_instance.api_server --reason "approved by security"[/cyan]
+
+      [cyan]drifty ignore aws_instance.api_server --remove[/cyan]
+
+      [cyan]drifty ignore --list[/cyan]
+    """
+    if list_all:
+        ignores = load_ignores(workspace)
+        if not ignores:
+            console.print("[dim]No resources currently ignored.[/dim]")
+            raise typer.Exit()
+        console.print(f"\n[bold]Ignored resources[/bold] (workspace: {workspace.name})\n")
+        for entry in ignores:
+            console.print(f"  [cyan]{entry['resource']}[/cyan]")
+            if entry.get("reason"):
+                console.print(f"    reason:     {entry['reason']}")
+            console.print(f"    ignored_at: {entry['ignored_at'][:10]}")
+            console.print(f"    ignored_by: {entry.get('ignored_by', 'unknown')}")
+        console.print()
+        raise typer.Exit()
+
+    if not resource:
+        console.print(
+            "[red]✗ Provide a resource address or use --list.[/red]\n"
+            "  Example: [bold cyan]drifty ignore aws_instance.api_server[/bold cyan]"
+        )
+        raise typer.Exit(code=1)
+
+    if remove:
+        removed = remove_ignore(resource, workspace)
+        if removed:
+            console.print(f"[green]✓ Removed[/green] [cyan]{resource}[/cyan] from ignore list.")
+        else:
+            console.print(f"[yellow]⚠ {resource}[/yellow] was not in the ignore list.")
+        raise typer.Exit()
+
+    add_ignore(resource, workspace, reason=reason)
+    console.print(
+        f"[green]✓ Ignoring[/green] [cyan]{resource}[/cyan]. "
+        f"It will appear as [dim]suppressed[/dim] in future scans."
+    )
 
 
 # ---------------------------------------------------------------------------
