@@ -171,47 +171,60 @@ def _run_terraform(workspace: Path) -> tuple[list[str] | None, str]:
 # ---------------------------------------------------------------------------
 
 
-def _parse_output(lines: list[str]) -> list[DriftFinding]:
-    findings: list[DriftFinding] = []
+def _parse_output(output: list[str]) -> list[DriftFinding]:
+    findings = []
+    id_map: dict[str, str] = {}
 
-    for line in lines:
+    for line in output:  # no .splitlines() needed — already a list
+        line = line.strip()
+        if not line:
+            continue
         try:
             msg = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if msg.get("type") == "refresh_complete":
+            hook = msg.get("hook", {})
+            resource = hook.get("resource", {})
+            addr = resource.get("addr")
+            id_value = hook.get("id_value")
+            if addr and id_value:
+                id_map[addr] = id_value
 
-        msg_type = msg.get("type", "")
-
-        if msg_type == "resource_drift":
-            finding = _parse_drift_message(msg)
-            if finding:
-                findings.append(finding)
-
-        elif msg_type == "diagnostic":
-            severity = msg.get("@level", "warning")
-            detail = msg.get("diagnostic", {}).get("detail", "")
-            summary = msg.get("diagnostic", {}).get("summary", "")
-            if severity == "error":
-                console.print(f"[red]terraform error:[/red] {summary} — {detail}")
+    for line in output:  # second pass
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            msg = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if msg.get("type") != "resource_drift":
+            continue
+        finding = _parse_drift_message(msg, id_map)
+        if finding:
+            findings.append(finding)
 
     return findings
 
 
-def _parse_drift_message(msg: dict) -> DriftFinding | None:
+def _parse_drift_message(msg: dict, id_map: dict[str, str] | None = None) -> DriftFinding | None:
     change = msg.get("change", {})
     resource = change.get("resource", {})
 
+    addr = resource.get("addr", "")
     resource_type = resource.get("resource_type", "")
     resource_name = resource.get("resource_name", "")
-    addr = resource.get("addr", f"{resource_type}.{resource_name}")
-
-    before = change.get("before") or {}
-    after = change.get("after") or {}
 
     if not resource_type:
         return None
 
-    resource_id = after.get("id") or before.get("id") or addr
+    before = change.get("before") or {}
+    after = change.get("after") or {}
+
+    # Use real AWS ID from refresh_complete map, fall back to before/after, then addr
+    resource_id = (id_map or {}).get(addr) or after.get("id") or before.get("id") or addr
+
     changed_attributes = _diff_attributes(before, after)
     remediation = _build_remediation_hint(resource_type, resource_name, resource_id)
 
