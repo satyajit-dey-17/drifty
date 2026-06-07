@@ -4,6 +4,17 @@ All notable changes to drifty will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-06-06
+
+### Added
+- `drifty ignore` command — suppress known/accepted drift entries from scan output
+- `drifty/ignore.py` — `add_ignore()`, `remove_ignore()`, `load_ignores()`, `filter_findings()`
+- Suppressed findings shown dimmed under a **Suppressed** label in terminal output — never silently hidden
+- Ignore entries persisted to `.drifty/ignore.yaml` with timestamp and `$USER` attribution
+- `--reason`, `--remove`, `--list` flags on `drifty ignore`
+- `run_scan()` now returns `(active, suppressed)` tuple — ignore list applied before history persistence
+- 24 new tests (199 total)
+
 ## [0.5.0] - 2026-06-06
 
 ### Added
