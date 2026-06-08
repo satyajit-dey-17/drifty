@@ -238,3 +238,25 @@ def _print_warning(msg: str) -> None:
         import sys
 
         print(f"⚠ {msg}", file=sys.stderr)
+
+
+class SlackNotifier:
+    """Notifier wrapper used by watch mode."""
+
+    def __init__(
+        self,
+        webhook_url: str,
+        workspace: Path = Path("."),
+        timeout: int = 10,
+    ) -> None:
+        self.webhook_url = webhook_url
+        self.workspace = workspace
+        self.timeout = timeout
+
+    def send(self, findings: list[DriftFinding]) -> bool:
+        return notify_slack(
+            findings=findings,
+            webhook_url=self.webhook_url,
+            workspace=self.workspace,
+            timeout=self.timeout,
+        )

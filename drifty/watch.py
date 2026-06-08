@@ -120,7 +120,7 @@ def cmd_watch(
                 "  Run: [bold]drifty config set slack_webhook=https://hooks.slack.com/...[/bold]"
             )
             raise typer.Exit(code=1)
-        notifier = get_notifier(notify, webhook_url=webhook_url)
+        notifier = get_notifier(notify, webhook_url=webhook_url, workspace=workspace)
 
     signal.signal(signal.SIGINT, _handle_shutdown)
     signal.signal(signal.SIGTERM, _handle_shutdown)
@@ -155,7 +155,7 @@ def _run_cycle(*, workspace, profile, attribute, threshold, notifier, run_scan) 
     state = load_state()
 
     try:
-        all_findings = run_scan(
+        findings, suppressed = run_scan(
             workspace=workspace,
             profile=profile,
             with_attribution=attribute,
@@ -165,11 +165,14 @@ def _run_cycle(*, workspace, profile, attribute, threshold, notifier, run_scan) 
         console.print(f"[dim][{ts}][/dim] [yellow]⚠️  Scan failed: {e}[/yellow]")
         return
 
-    new_drift = diff_findings(all_findings, state)
-    save_state(build_known_findings(all_findings))
+    new_drift = diff_findings(findings, state)
+    save_state(build_known_findings(findings))
 
     if not new_drift:
-        console.print(f"[dim][{ts}][/dim] [green]✅ No new drift detected.[/green]")
+        suppressed_note = f" [dim]({len(suppressed)} suppressed)[/dim]" if suppressed else ""
+        console.print(
+            f"[dim][{ts}][/dim] [green]✅ No new drift detected.[/green]{suppressed_note}"
+        )
         return
 
     filtered = [f for f in new_drift if _meets_threshold(f, threshold)]

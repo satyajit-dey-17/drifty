@@ -7,6 +7,7 @@ Reads GITHUB_TOKEN, GITHUB_REPOSITORY, and PR_NUMBER from environment.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -19,11 +20,12 @@ if TYPE_CHECKING:
     from drifty.scanner import DriftFinding
 
 GITHUB_API = "https://api.github.com"
-MAX_FINDINGS_IN_COMMENT = 20  # keep PR comments readable
+MAX_FINDINGS_IN_COMMENT = 20
 
 
 def post_pr_comment(
     findings: list[DriftFinding],
+    suppressed: list[DriftFinding] | None = None,
     workspace: Path = Path("."),
     github_token: str | None = None,
     repository: str | None = None,
@@ -44,6 +46,17 @@ def post_pr_comment(
     repo = repository or os.environ.get("GITHUB_REPOSITORY")
     pr_raw = pr_number or os.environ.get("PR_NUMBER")
 
+    if pr_raw is None:
+        event_path = os.environ.get("GITHUB_EVENT_PATH")
+        if event_path:
+            try:
+
+                with open(event_path) as f:
+                    event = json.load(f)
+                pr_raw = (event.get("pull_request") or {}).get("number") or event.get("number")
+            except Exception:
+                pr_raw = None
+
     if not token:
         _print_warning("GITHUB_TOKEN not set. Cannot post PR comment.")
         return False
@@ -51,16 +64,18 @@ def post_pr_comment(
         _print_warning("GITHUB_REPOSITORY not set (expected format: owner/repo).")
         return False
     if not pr_raw:
-        _print_warning("PR_NUMBER not set.")
+        _print_warning(
+            "PR number not found. Pass --pr, set PR_NUMBER, or run in a pull_request workflow."
+        )
         return False
 
     try:
         pr = int(pr_raw)
     except (ValueError, TypeError):
-        _print_warning(f"PR_NUMBER must be an integer, got: {pr_raw!r}")
+        _print_warning(f"PR number must be an integer, got: {pr_raw!r}")
         return False
 
-    body = _build_comment(findings, workspace)
+    body = _build_comment(findings, workspace, suppressed=suppressed or [])
     url = f"{GITHUB_API}/repos/{repo}/issues/{pr}/comments"
 
     try:
@@ -87,8 +102,13 @@ def post_pr_comment(
         return False
 
 
-def _build_comment(findings: list[DriftFinding], workspace: Path) -> str:
+def _build_comment(
+    findings: list[DriftFinding],
+    workspace: Path,
+    suppressed: list[DriftFinding] | None = None,
+) -> str:
     """Build the full Markdown comment body."""
+    suppressed = suppressed or []
     workspace_name = workspace.name or str(workspace)
     sorted_findings = sorted(findings, key=lambda f: SEVERITY_ORDER.get(f.severity, 3))
     total = len(findings)
@@ -119,7 +139,12 @@ def _build_comment(findings: list[DriftFinding], workspace: Path) -> str:
             f"\n> _{overflow} more finding{'s' if overflow != 1 else ''} not shown. "
             f"Run `drifty report --format markdown` for the full report._"
         )
-
+    if suppressed:
+        lines.append("\n### Suppressed")
+        lines.append(
+            f"\n_{len(suppressed)} finding{'s' if len(suppressed) != 1 else ''} "
+            "were suppressed by ignore rules._"
+        )
     # ── Footer ────────────────────────────────────────────────────────────────
     lines.append("\n---")
     lines.append(
@@ -185,7 +210,6 @@ def _severity_summary(findings: list[DriftFinding]) -> str:
 
 def _fmt(value) -> str:
     """Compact value for table cells."""
-    import json
 
     if value is None:
         return "null"

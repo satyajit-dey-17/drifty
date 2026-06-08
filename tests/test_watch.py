@@ -68,9 +68,8 @@ def test_meets_threshold_equal(low_finding):
 
 def test_run_cycle_no_new_drift(tmp_path, monkeypatch, critical_finding):
     monkeypatch.chdir(tmp_path)
-    mock_scan = MagicMock(return_value=[critical_finding])
+    mock_scan = MagicMock(return_value=([critical_finding], []))
 
-    # First cycle — seeds the state
     _run_cycle(
         workspace=tmp_path,
         profile="default",
@@ -80,7 +79,6 @@ def test_run_cycle_no_new_drift(tmp_path, monkeypatch, critical_finding):
         run_scan=mock_scan,
     )
 
-    # Second cycle — same finding, no new drift
     notifier = MagicMock()
     _run_cycle(
         workspace=tmp_path,
@@ -99,8 +97,7 @@ def test_run_cycle_new_drift_triggers_notifier(
 ):
     monkeypatch.chdir(tmp_path)
 
-    # First cycle — only low finding known
-    mock_scan = MagicMock(return_value=[low_finding])
+    mock_scan = MagicMock(return_value=([low_finding], []))
     _run_cycle(
         workspace=tmp_path,
         profile="default",
@@ -110,8 +107,7 @@ def test_run_cycle_new_drift_triggers_notifier(
         run_scan=mock_scan,
     )
 
-    # Second cycle — critical finding appears
-    mock_scan.return_value = [low_finding, critical_finding]
+    mock_scan.return_value = ([low_finding, critical_finding], [])
     notifier = MagicMock()
     _run_cycle(
         workspace=tmp_path,
@@ -128,16 +124,17 @@ def test_run_cycle_new_drift_triggers_notifier(
     assert sent[0].resource_name == "main"
 
 
+
 def test_run_cycle_threshold_filters_notifier(tmp_path, monkeypatch, low_finding):
     monkeypatch.chdir(tmp_path)
-    mock_scan = MagicMock(return_value=[low_finding])
+    mock_scan = MagicMock(return_value=([low_finding], []))
     notifier = MagicMock()
 
     _run_cycle(
         workspace=tmp_path,
         profile="default",
         attribute=False,
-        threshold="high",  # low finding should not trigger
+        threshold="high",
         notifier=notifier,
         run_scan=mock_scan,
     )
@@ -165,7 +162,7 @@ def test_run_cycle_scan_failure_does_not_crash(tmp_path, monkeypatch):
 
 def test_run_cycle_saves_state_after_scan(tmp_path, monkeypatch, critical_finding):
     monkeypatch.chdir(tmp_path)
-    mock_scan = MagicMock(return_value=[critical_finding])
+    mock_scan = MagicMock(return_value=([critical_finding], []))
 
     _run_cycle(
         workspace=tmp_path,
