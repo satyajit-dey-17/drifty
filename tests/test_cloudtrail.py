@@ -5,14 +5,17 @@ Tests for cloudtrail.py — attribution logic using moto to mock AWS CloudTrail.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from moto import mock_aws
 
 from drifty.cloudtrail import (
     _build_lookup_values,
+    _event_score,
     _extract_principal,
     _is_automated_service_event,
+    _lookup_event,
     format_attribution,
 )
 from drifty.scanner import DriftFinding
@@ -50,6 +53,76 @@ class TestBuildLookupValues:
     def test_no_duplicate_values(self):
         values = _build_lookup_values("aws_instance", "i-123")
         assert len(values) == len(set(values))
+
+
+class TestEventScore:
+    def test_prefers_human_relevant_event_over_newer_irrelevant_event(self):
+        newer = {
+            "EventName": "AuthorizeSecurityGroupEgress",
+            "EventTime": datetime(2026, 6, 8, 11, 51, tzinfo=timezone.utc),
+            "Username": "arn:aws:iam::123:user/test",
+            "CloudTrailEvent": json.dumps({"userIdentity": {"arn": "arn:aws:iam::123:user/test"}}),
+        }
+        older = {
+            "EventName": "AuthorizeSecurityGroupIngress",
+            "EventTime": datetime(2026, 6, 8, 11, 50, tzinfo=timezone.utc),
+            "Username": "arn:aws:iam::123:user/test",
+            "CloudTrailEvent": json.dumps({"userIdentity": {"arn": "arn:aws:iam::123:user/test"}}),
+        }
+
+        assert _event_score(older, "aws_security_group") >= _event_score(
+            newer, "aws_security_group"
+        )
+
+    def test_prefers_tagging_event_for_s3_bucket(self):
+        event = {
+            "EventName": "PutBucketTagging",
+            "EventTime": datetime(2026, 6, 8, 11, 50, tzinfo=timezone.utc),
+            "Username": "arn:aws:iam::123:user/test",
+            "CloudTrailEvent": json.dumps({"userIdentity": {"arn": "arn:aws:iam::123:user/test"}}),
+        }
+        assert _event_score(event, "aws_s3_bucket")[0] > 0
+
+
+class TestLookupEvent:
+    def test_returns_best_ranked_event_not_first_event(self):
+        client = MagicMock()
+        paginator = MagicMock()
+        client.get_paginator.return_value = paginator
+
+        events = [
+            {
+                "EventName": "AuthorizeSecurityGroupEgress",
+                "EventTime": datetime(2026, 6, 8, 11, 51, tzinfo=timezone.utc),
+                "Username": "arn:aws:iam::123:user/test",
+                "CloudTrailEvent": json.dumps(
+                    {"userIdentity": {"arn": "arn:aws:iam::123:user/test"}}
+                ),
+            },
+            {
+                "EventName": "AuthorizeSecurityGroupIngress",
+                "EventTime": datetime(2026, 6, 8, 11, 50, tzinfo=timezone.utc),
+                "Username": "arn:aws:iam::123:user/test",
+                "CloudTrailEvent": json.dumps(
+                    {"userIdentity": {"arn": "arn:aws:iam::123:user/test"}}
+                ),
+            },
+        ]
+        paginator.paginate.return_value = iter([{"Events": events}])
+
+        result = _lookup_event(
+            client=client,
+            resource_name="sg-123",
+            start_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            end_time=datetime(2026, 6, 8, tzinfo=timezone.utc),
+            resource_type="aws_security_group",
+        )
+
+        assert result is not None
+        assert result["action"] in {
+            "AuthorizeSecurityGroupIngress",
+            "ModifySecurityGroupRules",
+        }
 
 
 # ---------------------------------------------------------------------------

@@ -151,7 +151,7 @@ def _lookup_event(
 ) -> dict | None:
     """
     Call CloudTrail LookupEvents with a ResourceName filter.
-    Pages through results and returns the most recent matching event.
+    Pages through results and returns the best matching event.
     """
     lookup_attrs = [{"AttributeKey": "ResourceName", "AttributeValue": resource_name}]
 
@@ -164,37 +164,29 @@ def _lookup_event(
             PaginationConfig={"MaxItems": 50, "PageSize": 50},
         )
 
+        all_events = []
         for page in pages:
-            events = page.get("Events", [])
-            if not events:
-                continue
+            all_events.extend(page.get("Events", []))
 
-            # Events are returned newest-first — take the first match
-            # that isn't an automated AWS service action
-            for event in events:
-                principal = _extract_principal(event)
-                if _is_automated_service_event(principal):
-                    continue
+        if not all_events:
+            return None
 
-                return {
-                    "principal": principal,
-                    "timestamp": event["EventTime"].isoformat(),
-                    "action": event.get("EventName", "Unknown"),
-                }
+        ranked = sorted(
+            all_events,
+            key=lambda event: _event_score(event, resource_type),
+            reverse=True,
+        )
 
-            # If all events were automated, return the newest one anyway
-            if events:
-                event = events[0]
-                return {
-                    "principal": _extract_principal(event),
-                    "timestamp": event["EventTime"].isoformat(),
-                    "action": event.get("EventName", "Unknown"),
-                }
+        best = ranked[0]
+        return {
+            "principal": _extract_principal(best),
+            "timestamp": best["EventTime"].isoformat(),
+            "action": best.get("EventName", "Unknown"),
+        }
 
     except botocore.exceptions.ClientError as e:
         error_code = e.response["Error"]["Code"]
         if error_code == "InvalidLookupAttributesException":
-            # Resource name format not supported by CloudTrail lookup
             return None
         console.print(
             f"[yellow]⚠ CloudTrail lookup failed ({error_code}): "
@@ -203,13 +195,12 @@ def _lookup_event(
         return None
     except botocore.exceptions.EndpointResolutionError:
         console.print(
-            "[yellow]⚠ Could not reach CloudTrail endpoint. " "Check AWS credentials.[/yellow]"
+            "[yellow]⚠ Could not reach CloudTrail endpoint. Check AWS credentials.[/yellow]"
         )
+        return None
     except Exception as e:
         console.print(f"[yellow]⚠ Unexpected CloudTrail error: {e}[/yellow]")
         return None
-
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +284,42 @@ def _is_automated_service_event(principal: str) -> bool:
         "AWSServiceRoleFor",
     ]
     return any(pattern in principal for pattern in automated_patterns)
+
+
+def _event_score(event: dict, resource_type: str) -> tuple[int, float]:
+    """
+    Higher score = better attribution candidate.
+    Prefers:
+      1. Human/team actions over AWS service automation
+      2. Resource-type-relevant API names
+      3. Newer events as a tie-breaker
+    """
+    event_name = event.get("EventName", "")
+    principal = _extract_principal(event)
+
+    score = 0
+
+    if not _is_automated_service_event(principal):
+        score += 100
+
+    prefixes = RESOURCE_EVENT_PREFIXES.get(resource_type, [])
+    if any(event_name.startswith(prefix) for prefix in prefixes):
+        score += 50
+
+    if event_name in {
+        "AuthorizeSecurityGroupIngress",
+        "RevokeSecurityGroupIngress",
+        "ModifySecurityGroupRules",
+        "CreateTags",
+        "DeleteTags",
+        "PutBucketTagging",
+        "DeleteBucketTagging",
+        "ModifyInstanceAttribute",
+    }:
+        score += 20
+
+    timestamp = event["EventTime"].timestamp() if event.get("EventTime") else 0.0
+    return (score, timestamp)
 
 
 def format_attribution(finding: DriftFinding) -> str:

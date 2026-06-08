@@ -155,8 +155,8 @@ def _render_finding_block(finding: DriftFinding, with_attribution: bool = False)
     # Changed attributes
     for change in finding.changed_attributes:
         attr = change.get("attribute", "")
-        before = _format_value(change.get("before"))
-        after = _format_value(change.get("after"))
+        before = _format_change(attr, change.get("before"))
+        after = _format_change(attr, change.get("after"))
         console.print(
             f"   [dim]Changed:[/dim]  [cyan]{attr}[/cyan]  "
             f"[dim]→[/dim]  [bold]{after}[/bold]  [dim](was: {before})[/dim]"
@@ -355,6 +355,63 @@ def _count_by_severity(findings: list[DriftFinding]) -> dict[str, int]:
     for f in findings:
         counts[f.severity] = counts.get(f.severity, 0) + 1
     return counts
+
+
+def _format_change(attr: str, value) -> str:
+    """Render a changed attribute with special handling for noisy structures."""
+    if attr == "ingress":
+        return _summarize_sg_rules(value)
+    return _format_value(value)
+
+
+def _summarize_sg_rules(value) -> str:
+    """
+    Summarize AWS security group ingress/egress rules in a compact, human-readable way.
+    """
+    if value is None:
+        return "null"
+
+    if not isinstance(value, list):
+        return _format_value(value)
+
+    if not value:
+        return "no rules"
+
+    parts: list[str] = []
+    for rule in value[:2]:
+        proto = rule.get("protocol") or rule.get("ip_protocol") or "all"
+        from_port = rule.get("from_port")
+        to_port = rule.get("to_port")
+
+        if proto == "-1":
+            proto = "all"
+
+        if from_port is None or to_port is None or proto == "all":
+            port_text = "all ports"
+        elif from_port == to_port:
+            port_text = f"port {from_port}"
+        else:
+            port_text = f"ports {from_port}-{to_port}"
+
+        cidrs = [r.get("cidr_ip") for r in rule.get("ip_ranges", []) if r.get("cidr_ip")]
+        cidrs += rule.get("cidr_blocks", [])
+        cidrs += rule.get("ipv6_cidr_blocks", [])
+
+        if cidrs:
+            source_text = ", ".join(cidrs[:2])
+            if len(cidrs) > 2:
+                source_text += f" +{len(cidrs) - 2} more"
+        else:
+            source_text = "custom source"
+
+        parts.append(f"{proto} {port_text} from {source_text}")
+
+    suffix = ""
+    if len(value) > 2:
+        suffix = f" +{len(value) - 2} more"
+
+    rule_word = "rule" if len(value) == 1 else "rules"
+    return f"{len(value)} {rule_word}: " + "; ".join(parts) + suffix
 
 
 def _format_value(value) -> str:
