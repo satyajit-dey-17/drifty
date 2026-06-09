@@ -4,6 +4,16 @@ All notable changes to drifty will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.6.3] - 2026-06-08
+
+### Changed
+- Refined GitHub PR reporting workflow behavior and documentation
+- Updated README with clearer installation, Slack notification, GitHub PR comment, and release instructions
+
+### Fixed
+- Fixed GitHub PR reporting flow for pull request comment posting
+- Fixed watch-cycle related test coverage and supporting test behavior
+
 ## [0.6.0] - 2026-06-06
 
 ### Added
