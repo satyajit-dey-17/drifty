@@ -32,16 +32,6 @@ def post_pr_comment(
     pr_number: int | None = None,
     timeout: int = 15,
 ) -> bool:
-    """
-    Post a drift report as a GitHub PR comment.
-
-    Resolves credentials from args first, then environment variables:
-      GITHUB_TOKEN       — personal access token or Actions GITHUB_TOKEN
-      GITHUB_REPOSITORY  — owner/repo (e.g. acme/infra)
-      PR_NUMBER          — pull request number
-
-    Returns True on success, False on any failure.
-    """
     token = github_token if github_token is not None else os.environ.get("GITHUB_TOKEN")
     repo = repository if repository is not None else os.environ.get("GITHUB_REPOSITORY")
     pr_raw = pr_number if pr_number is not None else os.environ.get("PR_NUMBER")
@@ -50,7 +40,6 @@ def post_pr_comment(
         event_path = os.environ.get("GITHUB_EVENT_PATH")
         if event_path:
             try:
-
                 with open(event_path) as f:
                     event = json.load(f)
                 pr_raw = (event.get("pull_request") or {}).get("number") or event.get("number")
@@ -76,19 +65,29 @@ def post_pr_comment(
         return False
 
     body = _build_comment(findings, workspace, suppressed=suppressed or [])
-    url = f"{GITHUB_API}/repos/{repo}/issues/{pr}/comments"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
 
     try:
-        response = httpx.post(
-            url,
-            json={"body": body},
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-            timeout=timeout,
-        )
+        existing = _find_existing_comment(repo, pr, headers, timeout=timeout)
+        if existing is not None:
+            comment_id = existing["id"]
+            response = httpx.patch(
+                f"{GITHUB_API}/repos/{repo}/issues/comments/{comment_id}",
+                json={"body": body},
+                headers=headers,
+                timeout=timeout,
+            )
+        else:
+            response = httpx.post(
+                f"{GITHUB_API}/repos/{repo}/issues/{pr}/comments",
+                json={"body": body},
+                headers=headers,
+                timeout=timeout,
+            )
         response.raise_for_status()
         return True
     except httpx.TimeoutException:
@@ -102,6 +101,28 @@ def post_pr_comment(
         return False
 
 
+def _find_existing_comment(
+    repo: str,
+    pr: int,
+    headers: dict[str, str],
+    timeout: int = 15,
+) -> dict | None:
+    response = httpx.get(
+        f"{GITHUB_API}/repos/{repo}/issues/{pr}/comments",
+        headers=headers,
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    comments = response.json()
+
+    for comment in reversed(comments):
+        body = comment.get("body", "")
+        user = (comment.get("user") or {}).get("login", "")
+        if user == "github-actions[bot]" and "<!-- drifty-report -->" in body:
+            return comment
+    return None
+
+
 def _build_comment(
     findings: list[DriftFinding],
     workspace: Path,
@@ -113,7 +134,7 @@ def _build_comment(
     sorted_findings = sorted(findings, key=lambda f: SEVERITY_ORDER.get(f.severity, 3))
     total = len(findings)
 
-    lines: list[str] = []
+    lines: list[str] = ["<!-- drifty-report -->"]
 
     # ── Header ───────────────────────────────────────────────────────────────
     if not findings:
