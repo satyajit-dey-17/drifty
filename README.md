@@ -15,13 +15,13 @@ pip install drifty
 
 ## The Problem
 
-`terraform plan` tells you **what** drifted. It doesn't tell you **who** changed it, **how dangerous** the change is, or **what to do** about it.
+`terraform plan` tells you **what** drifted. It does not tell you **who** changed it, **how dangerous** the change is, or **what to do** about it.
 
-Manual changes in the AWS console during incidents, auto-scaling events, and ad-hoc CLI commands silently diverge your infrastructure from your Terraform state. By the time you notice, you don't know if it was a colleague, a runbook, or a security incident.
+Manual changes in the AWS console during incidents, auto-scaling events, and ad-hoc CLI commands silently diverge your infrastructure from Terraform state. By the time the drift is noticed, it is often unclear whether it came from a teammate, automation, or a security issue.
 
-Enterprise platforms like Spacelift and HCP Terraform Cloud detect drift on a schedule — but they're full IaC platforms that are heavyweight, expensive, and still offer zero attribution or severity intelligence.
+Enterprise platforms like Spacelift and HCP Terraform Cloud can detect drift on a schedule, but they are full IaC platforms that are heavier, more expensive, and still do not provide attribution or severity intelligence.
 
-**drifty fills this exact gap.**
+**drifty fills this gap.**
 
 ---
 
@@ -34,7 +34,7 @@ $ drifty scan --workspace ./infra --attribute
 Scanning workspace: ./infra  |  2026-06-05 14:00 UTC
 
 ╭─────────────────────────────────────────────────────────────╮
-│  3 drifts detected  -   1 Critical  -   1 High  -   1 Low      │
+│  3 drifts detected  -   1 Critical  -   1 High  -   1 Low   │
 ╰─────────────────────────────────────────────────────────────╯
 
 🔴 CRITICAL  aws_security_group.main  (sg-0abc1234)
@@ -64,7 +64,7 @@ Run `drifty report --format markdown` to export this as a report.
 
 ## Install
 
-**Requirements:** Python 3.10+, Terraform 1.1+, AWS credentials configured
+**Requirements:** Python 3.10+, AWS credentials configured, Terraform available in your workspace
 
 ```bash
 pip install drifty
@@ -82,13 +82,13 @@ drifty init
 # 2. Scan for drift
 drifty scan
 
-# 3. Scan with CloudTrail attribution (who caused each drift)
+# 3. Scan with CloudTrail attribution
 drifty scan --attribute
 
 # 4. Filter to critical and high only
 drifty scan --severity high
 
-# 5. Output as JSON (for CI/CD piping)
+# 5. Output as JSON for CI/CD piping
 drifty scan --output json | jq '.findings[] | select(.severity=="critical")'
 
 # 6. Export a markdown report
@@ -98,7 +98,7 @@ drifty report --format markdown --out ./drift-report.md
 drifty config set slack_webhook=https://hooks.slack.com/services/xxx/yyy/zzz
 drifty scan --notify slack
 
-# 8. Watch for new drift continuously (poll every 5 minutes)
+# 8. Watch for new drift continuously
 drifty watch --interval 300 --threshold high --notify slack
 
 # 9. Watch with CloudTrail attribution on every cycle
@@ -113,7 +113,7 @@ drifty history
 # 12. Show last 30 scans, high severity and above
 drifty history --last 30 --severity high
 
-# 13. Suppress a known/accepted drift
+# 13. Suppress a known or accepted drift
 drifty ignore aws_instance.api_server --reason "approved by security team"
 
 # 14. List all ignored resources
@@ -134,7 +134,7 @@ drifty scan
     │
     ├─ 2. parses JSON Lines output → extracts resource_drift entries
     │
-    ├─ 3. scores each finding (scorer.py)
+    ├─ 3. scores each finding
     │       critical → IAM, security groups, S3 policies
     │       high     → EC2 instances, RDS, load balancers
     │       medium   → Lambda, Auto Scaling, CloudWatch
@@ -145,9 +145,9 @@ drifty scan
     │       returns: IAM principal, timestamp, API action
     │
     └─ 5. renders output
-            terminal → Rich color-coded table
+            terminal → Rich color-coded output
             json     → structured output for CI/CD
-            markdown → report for Confluence / Notion
+            markdown → report for docs and collaboration
 ```
 
 ---
@@ -188,25 +188,26 @@ drifty report --format json
 
 ### `drifty scan --notify slack`
 
-Sends a Slack Block Kit message when drift is found. Requires a webhook URL configured in `.drifty/config.yaml`.
+Sends a Slack Block Kit message when drift is found. Configure `slack_webhook` in `.drifty/config.yaml` first.
 
 ```bash
 # One-time setup
 drifty config set slack_webhook=https://hooks.slack.com/services/T.../B.../xxx
 
-# Then just add the flag
+# Then run with notifications
 drifty scan --notify slack
 drifty scan --attribute --notify slack --severity high
 ```
 
 The Slack message includes:
-- Severity summary (🔴 Critical / 🟠 High / 🟡 Medium / 🟢 Low counts)
-- Per-finding blocks with changed attributes, CloudTrail attribution, and remediation hint
-- Capped at 10 findings per message to stay within Slack's block limit
+
+- Severity summary
+- Per-finding blocks with changed attributes, attribution, and remediation hints
+- A cap of 10 findings per message to stay within Slack block limits
 
 ### `drifty watch`
 
-Continuously monitors your Terraform workspace for drift and alerts when new findings appear.
+Continuously monitors a Terraform workspace for drift and alerts when new findings appear.
 
 ```text
 Options:
@@ -221,11 +222,11 @@ Options:
 # Poll every 5 minutes, alert on high+ drift via Slack
 drifty watch --interval 300 --threshold high --notify slack --attribute
 
-# Run locally with a fast interval for testing
+# Run locally with a faster interval for testing
 drifty watch --interval 60 --threshold low
 ```
 
-drifty watch tracks state between cycles using a finding hash stored in `.drifty/state.json`. It only alerts on **new** drift — findings already seen in the previous cycle are suppressed to avoid repeated noise.
+`drifty watch` tracks state between cycles using a finding hash stored in `.drifty/state.json`. It only alerts on **new** drift so previously seen findings do not create repeated noise.
 
 ### `drifty report-pr`
 
@@ -243,14 +244,16 @@ Options:
 ```
 
 ```bash
-# In GitHub Actions (env vars set automatically)
+# In GitHub Actions
 drifty report-pr --attribute --severity high
 
 # Locally against a specific PR
 drifty report-pr --repo acme/infra --pr 42 --token ghp_xxx
 ```
 
-Each finding renders as a collapsible `<details>` block with a changed attributes table, CloudTrail attribution, and a remediation hint. Add this step to your workflow:
+Each finding renders as a collapsible `<details>` block with changed attributes, attribution details, and a remediation hint.
+
+Example GitHub Actions step:
 
 ```yaml
 - name: Drift Report
@@ -261,7 +264,9 @@ Each finding renders as a collapsible `<details>` block with a changed attribute
     PR_NUMBER: ${{ github.event.pull_request.number }}
 ```
 
-### `drifty history`
+---
+
+## `drifty history`
 
 Shows drift trends from previous scans. Findings are automatically persisted to `.drifty/history.json` after every `drifty scan`.
 
@@ -279,14 +284,15 @@ drifty history --last 30 --severity high
 drifty history --output json
 ```
 
-### `drifty ignore`
+---
 
-Manages the ignore list for suppressing known or accepted drift. Suppressed resources
-still appear in scan output under a dimmed **Suppressed** label — never silently hidden.
+## `drifty ignore`
+
+Manages the ignore list for suppressing known or accepted drift. Suppressed resources still appear in scan output under a dimmed **Suppressed** label rather than being silently hidden.
 
 ```text
 Options:
-  RESOURCE            Resource address to ignore. Example: aws_instance.api_server
+  RESOURCE            Resource address to ignore, for example aws_instance.api_server
   --workspace PATH    Terraform directory (default: current dir)
   --reason TEXT       Reason for ignoring this resource
   --remove            Remove a resource from the ignore list
@@ -300,7 +306,7 @@ drifty ignore aws_instance.api_server --remove
 drifty ignore --list
 ```
 
-Ignore entries are persisted to `.drifty/ignore.yaml` with timestamp and author (`$USER`).
+Ignore entries are persisted to `.drifty/ignore.yaml` with timestamp and author.
 
 ---
 
@@ -311,14 +317,14 @@ Ignore entries are persisted to `.drifty/ignore.yaml` with timestamp and author 
 | `aws_iam_role_policy`, `aws_iam_policy` | 🔴 Critical |
 | `aws_security_group`, `aws_security_group_rule` | 🔴 Critical |
 | `aws_s3_bucket_policy`, `aws_s3_bucket_public_access_block` | 🔴 Critical |
-| `aws_instance` (type/AMI change) | 🟠 High |
+| `aws_instance` (type or AMI change) | 🟠 High |
 | `aws_rds_instance`, `aws_lb`, `aws_alb` | 🟠 High |
 | `aws_lambda_function`, `aws_autoscaling_group` | 🟡 Medium |
 | `aws_cloudwatch_metric_alarm` | 🟡 Medium |
 | `aws_instance` (tag-only change) | 🟢 Low |
 | `aws_s3_bucket` (tag-only change) | 🟢 Low |
 
-Override any rule per-workspace:
+Override any rule per workspace:
 
 ```yaml
 # .drifty/config.yaml
@@ -329,7 +335,7 @@ severity_overrides:
 
 ---
 
-## drifty vs. the Alternatives
+## drifty vs. alternatives
 
 | Feature | `terraform plan` | Spacelift / HCP TF | **drifty** |
 |---|---|---|---|
@@ -337,15 +343,15 @@ severity_overrides:
 | Who caused it | ❌ | ❌ | ✅ CloudTrail |
 | Severity score | ❌ | ❌ | ✅ |
 | Remediation hint | ❌ | ❌ | ✅ |
-| JSON / Markdown output | ❌ | partial | ✅ |
+| JSON / Markdown output | ❌ | Partial | ✅ |
 | Works locally / in CI | ✅ | ❌ SaaS only | ✅ |
-| Cost | free | $$$ | free |
-| Install | N/A | platform setup | `pip install drifty` |
-| Slack / webhook alerts | ❌ | ❌ | ✅ v0.2.0 |
-| Continuous drift watch | ❌ | ✅ scheduled | ✅ v0.3.0 |
-| GitHub PR comment | ❌ | ❌ | ✅ v0.4.0 |
-| Drift history / trends | ❌ | ❌ | ✅ v0.5.0 |
-| Ignore / suppress drift | ❌ | ❌ | ✅ v0.6.0 |
+| Cost | Free | $$$ | Free |
+| Install | N/A | Platform setup | `pip install drifty` |
+| Slack alerts | ❌ | ❌ | ✅ |
+| Continuous drift watch | ❌ | ✅ Scheduled | ✅ |
+| GitHub PR comment | ❌ | ❌ | ✅ |
+| Drift history / trends | ❌ | ❌ | ✅ |
+| Ignore / suppress drift | ❌ | ❌ | ✅ |
 
 ---
 
@@ -353,25 +359,42 @@ severity_overrides:
 
 ```yaml
 # .drifty/config.yaml
-default_profile: default          # AWS CLI profile
-default_severity: null            # minimum severity filter (null = show all)
-default_output: terminal          # terminal | json | markdown
-slack_webhook: null               # Slack incoming webhook URL
-cloudtrail_lookback_days: 90      # max 90 (CloudTrail API limit)
-severity_overrides: {}            # per-resource type overrides
+default_profile: default
+default_severity: null
+default_output: terminal
+slack_webhook: null
+cloudtrail_lookback_days: 90
+severity_overrides: {}
+```
+
+---
+
+## Release
+
+drifty is packaged with Poetry and published to PyPI.
+
+```bash
+poetry version patch
+poetry build
+poetry publish
+```
+
+Use TestPyPI for a dry run before publishing to production:
+
+```bash
+poetry publish -r testpypi
 ```
 
 ---
 
 ## Roadmap
 
-- [x] `--notify slack` — post drift summary to Slack webhook _(v0.2.0)_
-- [x] `drifty watch` — continuous drift monitoring (poll on interval)
+- [x] Slack notifications via `--notify slack`
+- [x] Continuous drift watch
 - [x] GitHub PR comment integration
-- [x] Drift history — persist findings to `.drifty/history.json`
-- [x] `drifty ignore` — suppress known/accepted drift entries
+- [x] Drift history
+- [x] Ignore / suppress drift
 - [ ] Azure and GCP provider support
-
 
 ---
 
@@ -386,8 +409,7 @@ poetry run ruff check drifty/
 poetry run black drifty/
 ```
 
-Please open an issue before submitting a large PR.
-See [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) for bug and feature templates.
+Please open an issue before submitting a large PR. See [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) for bug and feature templates.
 
 ---
 
