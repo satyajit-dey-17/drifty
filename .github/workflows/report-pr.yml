@@ -1,8 +1,10 @@
 name: Drifty PR Report
 
 on:
-  pull_request_target:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches: ["master", "main"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,7 +15,7 @@ jobs:
   report:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout base repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python 3.13

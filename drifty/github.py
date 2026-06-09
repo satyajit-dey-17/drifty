@@ -42,9 +42,9 @@ def post_pr_comment(
 
     Returns True on success, False on any failure.
     """
-    token = github_token or os.environ.get("GITHUB_TOKEN")
-    repo = repository or os.environ.get("GITHUB_REPOSITORY")
-    pr_raw = pr_number or os.environ.get("PR_NUMBER")
+    token = github_token if github_token is not None else os.environ.get("GITHUB_TOKEN")
+    repo = repository if repository is not None else os.environ.get("GITHUB_REPOSITORY")
+    pr_raw = pr_number if pr_number is not None else os.environ.get("PR_NUMBER")
 
     if pr_raw is None:
         event_path = os.environ.get("GITHUB_EVENT_PATH")
