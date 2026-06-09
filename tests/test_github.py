@@ -102,6 +102,18 @@ def test_post_pr_comment_invalid_pr_number(monkeypatch):
     assert post_pr_comment([_finding()]) is False
 
 
+def test_post_pr_comment_pr_number_zero_is_rejected(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "acme/infra")
+    monkeypatch.delenv("PR_NUMBER", raising=False)
+
+    with patch("httpx.post", return_value=_mock_response(201)) as mock_post:
+        result = post_pr_comment([_finding()], pr_number=0)
+
+    assert result is False
+    mock_post.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # post_pr_comment — HTTP outcomes
 # ---------------------------------------------------------------------------
@@ -111,7 +123,14 @@ def test_post_pr_comment_success(monkeypatch):
     for k, v in ENV_BASE.items():
         monkeypatch.setenv(k, v)
 
-    with patch("httpx.post", return_value=_mock_response(201)):
+    get_resp = MagicMock()
+    get_resp.raise_for_status = MagicMock()
+    get_resp.json = MagicMock(return_value=[])
+
+    with (
+        patch("httpx.get", return_value=get_resp),
+        patch("httpx.post", return_value=_mock_response(201)),
+    ):
         assert post_pr_comment([_finding()]) is True
 
 
@@ -140,18 +159,25 @@ def test_post_pr_comment_request_error(monkeypatch):
 
 
 def test_post_pr_comment_args_override_env(monkeypatch):
-    """Explicit args take precedence over env vars."""
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
     monkeypatch.delenv("PR_NUMBER", raising=False)
 
-    with patch("httpx.post", return_value=_mock_response(201)) as mock_post:
+    get_resp = MagicMock()
+    get_resp.raise_for_status = MagicMock()
+    get_resp.json = MagicMock(return_value=[])
+
+    with (
+        patch("httpx.get", return_value=get_resp),
+        patch("httpx.post", return_value=_mock_response(201)) as mock_post,
+    ):
         result = post_pr_comment(
             [_finding()],
             github_token="ghp_explicit",
             repository="explicit/repo",
             pr_number=99,
         )
+
     assert result is True
     call_url = mock_post.call_args[0][0]
     assert "explicit/repo" in call_url
@@ -258,6 +284,64 @@ def test_severity_summary_single():
     result = _severity_summary([_finding("high")])
     assert "🟠" in result
     assert "1 High" in result
+
+
+# ---------------------------------------------------------------------------
+# _comment_exists
+# ---------------------------------------------------------------------------
+
+
+def _comment(
+    id_: int = 1,
+    body: str = "## 🔍 drifty — No Drift Detected",
+    user: str = "github-actions[bot]",
+):
+    return {"id": id_, "body": body, "user": {"login": user}}
+
+
+def test_post_pr_comment_updates_existing_comment(monkeypatch):
+    for k, v in ENV_BASE.items():
+        monkeypatch.setenv(k, v)
+
+    get_resp = MagicMock()
+    get_resp.raise_for_status = MagicMock()
+    get_resp.json = MagicMock(
+        return_value=[
+            _comment(
+                id_=123,
+                body="<!-- drifty-report -->\n## 🔍 drifty — No Drift Detected",
+            )
+        ]
+    )
+
+    with (
+        patch("httpx.get", return_value=get_resp),
+        patch("httpx.patch", return_value=_mock_response(200)) as mock_patch,
+    ):
+        result = post_pr_comment([_finding()])
+
+    assert result is True
+    assert "/issues/comments/123" in mock_patch.call_args[0][0]
+
+
+def test_post_pr_comment_creates_when_no_existing_comment(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "acme/infra")
+    monkeypatch.setenv("PR_NUMBER", "42")
+
+    get_resp = MagicMock()
+    get_resp.raise_for_status = MagicMock()
+    get_resp.json = MagicMock(return_value=[])
+
+    with (
+        patch("httpx.get", return_value=get_resp),
+        patch("httpx.post", return_value=_mock_response(201)) as mock_post,
+    ):
+        result = post_pr_comment([_finding()])
+
+    assert result is True
+    mock_post.assert_called_once()
+    assert "/issues/42/comments" in mock_post.call_args[0][0]
 
 
 # ---------------------------------------------------------------------------

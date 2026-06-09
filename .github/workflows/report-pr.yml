@@ -1,8 +1,10 @@
 name: Drifty PR Report
 
 on:
-  pull_request_target:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches: ["master", "main"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,7 +15,7 @@ jobs:
   report:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout base repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python 3.13
@@ -31,7 +33,14 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction
 
+      - name: Lint with Ruff
+        run: poetry run ruff check .
+
+      - name: Check formatting with Black
+        run: poetry run black --check .
+
       - name: Post drift report to PR
+        if: github.event_name == 'pull_request'
         run: poetry run drifty report-pr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
