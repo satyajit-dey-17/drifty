@@ -4,15 +4,25 @@ All notable changes to drifty will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
-## [0.6.3] - 2026-06-08
+## [0.6.2] - 2026-06-08
 
-### Changed
-- Refined GitHub PR reporting workflow behavior and documentation
-- Updated README with clearer installation, Slack notification, GitHub PR comment, and release instructions
+### Added
+- `report-pr.yml` GitHub Actions workflow — runs `drifty report-pr --attribute --severity high` on pull request events
+- README usage examples for `drifty report-pr --attribute --severity high`
 
 ### Fixed
-- Fixed GitHub PR reporting flow for pull request comment posting
-- Fixed watch-cycle related test coverage and supporting test behavior
+- `drifty/github.py` — fixed GitHub PR comment posting flow for pull request reporting
+- GitHub PR report path now correctly targets PR discussion comments using `owner/repo` and PR number inputs
+- `tests/test_watch.py` — fixed watch-cycle related test behavior and coverage
+- PR reporting and watch-related changes validated with updated test coverage
+
+### Changed
+- `README.md` — refreshed install, Slack notification, GitHub PR comment, and release sections
+- GitHub PR reporting docs now show the exact workflow step:
+  - `drifty report-pr --attribute --severity high`
+  - `GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}`
+  - `GITHUB_REPOSITORY=${{ github.repository }}`
+  - `PR_NUMBER=${{ github.event.pull_request.number }}`
 
 ## [0.6.0] - 2026-06-06
 
