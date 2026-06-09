@@ -4,6 +4,15 @@ All notable changes to drifty will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+
+## [0.6.4] - 2026-06-09
+
+### Fixed
+- Updated the GitHub PR report workflow to run on `pull_request` events and manual dispatch, with lint and formatting checks before posting the drift report.
+- PR comments are now updated in place instead of creating duplicate comments on every run.
+- Added Ruff and Black validation to the PR report workflow so formatting and lint errors fail early before comment posting.
+
+
 ## [0.6.2] - 2026-06-08
 
 ### Added
