@@ -103,16 +103,19 @@ def test_post_pr_comment_invalid_pr_number(monkeypatch):
 
 
 def test_post_pr_comment_pr_number_zero_is_invalid(monkeypatch):
-    """PR number 0 should not be treated as falsy and silently fall through."""
+    """PR number 0 should not be treated as falsy and fall through to env var."""
     monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
     monkeypatch.setenv("GITHUB_REPOSITORY", "acme/infra")
     monkeypatch.delenv("PR_NUMBER", raising=False)
 
     with patch("httpx.post", return_value=_mock_response(201)) as mock_post:
         result = post_pr_comment([_finding()], pr_number=0)
-    # PR 0 is not a valid GitHub PR number; should either fail gracefully or post to /0/
-    # Either way it should not silently fall through to env var
-    assert mock_post.call_args[0][0].endswith("/0/comments") or result is False
+
+    # With our fix, pr_number=0 is not falsy — it should be passed through
+    # and the URL should contain /0/comments
+    assert result is True
+    assert "/0/comments" in mock_post.call_args[0][0]
+
 
 # ---------------------------------------------------------------------------
 # post_pr_comment — HTTP outcomes

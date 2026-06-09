@@ -33,6 +33,12 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction
 
+      - name: Lint with Ruff
+        run: poetry run ruff check .
+
+      - name: Check formatting with Black
+        run: poetry run black --check .
+
       - name: Post drift report to PR
         run: poetry run drifty report-pr
         env:

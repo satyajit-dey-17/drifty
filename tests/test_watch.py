@@ -124,7 +124,6 @@ def test_run_cycle_new_drift_triggers_notifier(
     assert sent[0].resource_name == "main"
 
 
-
 def test_run_cycle_threshold_filters_notifier(tmp_path, monkeypatch, low_finding):
     monkeypatch.chdir(tmp_path)
     mock_scan = MagicMock(return_value=([low_finding], []))
