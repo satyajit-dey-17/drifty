@@ -5,8 +5,13 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-STATE_DIR = Path(".drifty")
-STATE_FILE = STATE_DIR / "state.json"
+
+def _state_dir(workspace: Path) -> Path:
+    return workspace / ".drifty"
+
+
+def _state_file(workspace: Path) -> Path:
+    return _state_dir(workspace) / "state.json"
 
 
 def _hash_finding(finding) -> str:
@@ -23,20 +28,24 @@ def _hash_finding(finding) -> str:
     return hashlib.sha256(stable.encode()).hexdigest()
 
 
-def load_state() -> dict:
-    if not STATE_FILE.exists():
+def load_state(workspace: Path) -> dict:
+    state_file = _state_file(workspace)
+    if not state_file.exists():
         return {"last_scan": None, "known_findings": {}}
-    with STATE_FILE.open() as f:
+    with state_file.open() as f:
         return json.load(f)
 
 
-def save_state(known_findings: dict) -> None:
-    STATE_DIR.mkdir(exist_ok=True)
+def save_state(known_findings: dict, workspace: Path) -> None:
+    state_dir = _state_dir(workspace)
+    state_file = _state_file(workspace)
+
+    state_dir.mkdir(exist_ok=True)
     state = {
         "last_scan": datetime.now(timezone.utc).isoformat(),
         "known_findings": known_findings,
     }
-    with STATE_FILE.open("w") as f:
+    with state_file.open("w") as f:
         json.dump(state, f, indent=2)
 
 
