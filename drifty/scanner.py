@@ -28,11 +28,6 @@ console = Console()
 err_console = Console(stderr=True)
 
 
-# ---------------------------------------------------------------------------
-# Data model
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class DriftFinding:
     resource_type: str
@@ -44,11 +39,7 @@ class DriftFinding:
     attributed_at: str | None = None
     attributed_action: str | None = None
     remediation_hint: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Public entry point
-# ---------------------------------------------------------------------------
+    address: str | None = None
 
 
 def run_scan(
@@ -57,17 +48,6 @@ def run_scan(
     with_attribution: bool = False,
     severity_filter: str | None = None,
 ) -> tuple[list[DriftFinding], list[DriftFinding]]:
-    """
-    Full scan pipeline:
-      1. Run terraform plan -refresh-only -json -out=.drifty/refresh.tfplan
-      2. Run terraform show -json on the saved plan to get before/after diffs
-      3. Parse JSON Lines output into DriftFinding list
-      4. Score each finding (scorer.py)
-      5. Optionally attribute each finding (cloudtrail.py)
-      6. Apply severity filter
-      7. Filter against ignore list
-      8. Persist active findings to history
-    """
     with Progress(
         SpinnerColumn(),
         TextColumn("[bold cyan]Running terraform plan -refresh-only ...[/bold cyan]"),
@@ -86,13 +66,17 @@ def run_scan(
     if not findings:
         return [], []
 
-    # Score every finding
+    from drifty.config import load_config
     from drifty.scorer import score
 
-    for finding in findings:
-        finding.severity = score(finding)
+    config = load_config(workspace)
+    overrides = config.get("severity_overrides", {})
+    if not isinstance(overrides, dict):
+        overrides = {}
 
-    # CloudTrail attribution
+    for finding in findings:
+        finding.severity = score(finding, config_overrides=overrides)
+
     if with_attribution:
         from drifty.cloudtrail import attribute_finding
 
@@ -112,7 +96,6 @@ def run_scan(
                     finding.attributed_action = attribution.get("action")
                 progress.advance(task)
 
-    # Severity filter
     if severity_filter:
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         threshold = severity_order.get(severity_filter, 3)
@@ -123,22 +106,7 @@ def run_scan(
     return active, suppressed
 
 
-# ---------------------------------------------------------------------------
-# Terraform subprocess
-# ---------------------------------------------------------------------------
-
-
 def _run_terraform(workspace: Path) -> tuple[list[str] | None, dict | None, str]:
-    """
-    Step 1: terraform plan -refresh-only -json -out=.drifty/refresh.tfplan
-            Captures JSON Lines stream for drift detection + resource IDs.
-
-    Step 2: terraform show -json .drifty/refresh.tfplan
-            Extracts full before/after attribute values for changed resources.
-
-    Returns (json_lines, plan_json, stderr).
-    Returns (None, None, error_message) on failure.
-    """
     plan_dir = workspace / ".drifty"
     plan_dir.mkdir(exist_ok=True)
     plan_file = plan_dir / "refresh.tfplan"
@@ -183,7 +151,6 @@ def _run_terraform(workspace: Path) -> tuple[list[str] | None, dict | None, str]
 
     lines = [line for line in result.stdout.splitlines() if line.strip()]
 
-    # Step 2 — convert saved plan file to full JSON for before/after diffs
     plan_json = None
     if plan_file.exists():
         try:
@@ -197,26 +164,14 @@ def _run_terraform(workspace: Path) -> tuple[list[str] | None, dict | None, str]
             if show_result.returncode == 0:
                 plan_json = json.loads(show_result.stdout)
         except Exception:
-            pass  # plan_json stays None — changed_attributes will be empty
+            pass
         finally:
-            plan_file.unlink(missing_ok=True)  # always clean up temp file
+            plan_file.unlink(missing_ok=True)
 
     return lines, plan_json, result.stderr
 
 
-# ---------------------------------------------------------------------------
-# JSON Lines parser
-# ---------------------------------------------------------------------------
-
-
 def _build_diff_map(plan_json: dict | None) -> dict[str, tuple[dict, dict]]:
-    """
-    Build a map of resource address → (before, after) from a saved plan JSON.
-
-    terraform show -json <planfile> emits a "resource_changes" array where
-    each entry has change.before and change.after with full attribute values.
-    Only includes resources with actual changes (excludes no-op entries).
-    """
     if not plan_json:
         return {}
 
@@ -237,9 +192,8 @@ def _build_diff_map(plan_json: dict | None) -> dict[str, tuple[dict, dict]]:
 
 def _parse_output(output: list[str], plan_json: dict | None = None) -> list[DriftFinding]:
     findings = []
-
-    # Pass 1: build address → real AWS ID map from refresh_complete hooks
     id_map: dict[str, str] = {}
+
     for line in output:
         line = line.strip()
         if not line:
@@ -256,10 +210,8 @@ def _parse_output(output: list[str], plan_json: dict | None = None) -> list[Drif
             if addr and id_value:
                 id_map[addr] = id_value
 
-    # Build before/after diff map from saved plan JSON
     diff_map = _build_diff_map(plan_json)
 
-    # Pass 2: process resource_drift messages with real IDs + attribute diffs
     for line in output:
         line = line.strip()
         if not line:
@@ -292,15 +244,12 @@ def _parse_drift_message(
     if not resource_type:
         return None
 
-    # before/after: prefer diff_map (from saved plan), fall back to inline
-    # (inline exists in mocked test data but not in real terraform output)
     if diff_map and addr in diff_map:
         before, after = diff_map[addr]
     else:
         before = change.get("before") or {}
         after = change.get("after") or {}
 
-    # resource_id: prefer id_map, then inline before/after id field, then addr
     resource_id = (id_map or {}).get(addr) or after.get("id") or before.get("id") or addr
 
     changed_attributes = _diff_attributes(before, after)
@@ -312,6 +261,7 @@ def _parse_drift_message(
         resource_id=str(resource_id),
         changed_attributes=changed_attributes,
         remediation_hint=remediation,
+        address=addr,
     )
 
 
@@ -330,11 +280,7 @@ def _diff_attributes(before: dict, after: dict) -> list[dict]:
     return changed
 
 
-def _build_remediation_hint(
-    resource_type: str,
-    resource_name: str,
-    resource_id: str,
-) -> str:
+def _build_remediation_hint(resource_type: str, resource_name: str, resource_id: str) -> str:
     addr = f"{resource_type}.{resource_name}"
 
     importable = {

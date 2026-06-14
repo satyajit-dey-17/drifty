@@ -130,7 +130,7 @@ def cmd_scan(
         None,
         "--min-severity",
         "-s",
-        help="Minimum severity threshold (critical | high | low). "
+        help="Minimum severity threshold (critical | high | medium | low). "
         "Returns findings at this level and above. "
         "E.g. --min-severity high returns high and critical findings.",
     ),
@@ -138,7 +138,7 @@ def cmd_scan(
         "terminal",
         "--output",
         "-o",
-        help="Output format: terminal (default) | json | markdown.",
+        help="Output format: terminal (default) | table | json | markdown.",
     ),
     notify: str | None = typer.Option(
         None,
@@ -159,7 +159,7 @@ def cmd_scan(
 
       [cyan]drifty scan --workspace ./infra --attribute --output json[/cyan]
 
-      [cyan]drifty scan --severity high --notify slack[/cyan]
+      [cyan]drifty scan --min-severity high --notify slack[/cyan]
     """
     # Validate output format
     valid_outputs = ("terminal", "table", "json", "markdown")
@@ -320,7 +320,7 @@ def cmd_report_pr(
         None,
         "--min-severity",
         "-s",
-        help="Minimum severity threshold (critical | high | low). "
+        help="Minimum severity threshold (critical | high | medium | low). "
         "Returns findings at this level and above.",
     ),
     token: str | None = typer.Option(
@@ -349,7 +349,7 @@ def cmd_report_pr(
 
       [cyan]drifty report-pr[/cyan]
 
-      [cyan]drifty report-pr --attribute --severity high[/cyan]
+      [cyan]drifty report-pr --attribute --min-severity high[/cyan]
 
       [cyan]drifty report-pr --repo owner/infra --pr 42 --token ghp_xxx[/cyan]
     """
@@ -417,7 +417,7 @@ def cmd_history(
         None,
         "--min-severity",
         "-s",
-        help="Minimum severity threshold (critical | high | low). "
+        help="Minimum severity threshold (critical | high | medium | low). "
         "Returns findings at this level and above.",
     ),
     output: str = typer.Option(
@@ -436,7 +436,7 @@ def cmd_history(
 
       [cyan]drifty history[/cyan]
 
-      [cyan]drifty history --last 30 --severity high[/cyan]
+      [cyan]drifty history --last 30 --min-severity high[/cyan]
 
       [cyan]drifty history --output json[/cyan]
     """

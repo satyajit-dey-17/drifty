@@ -195,6 +195,24 @@ def _coerce_value(key: str, value: str) -> Any:
     if value.lower() in ("none", "null", ""):
         return None
 
+    # severity_overrides: parse "key1:val1,key2:val2" → dict
+    if key == "severity_overrides":
+        try:
+            parsed = {}
+            for item in value.split(","):
+                if not item.strip():
+                    continue
+                k, v = item.split(":")
+                parsed[k.strip()] = v.strip().lower()
+            return parsed
+        except (ValueError, AttributeError):
+            console.print(
+                f"[red]✗ Invalid severity_overrides format:[/red] [bold]{value}[/bold]. "
+                "Use: [cyan]resource_type:severity,resource_type:severity[/cyan]"
+                " (e.g. [cyan]aws_lambda_function:high,aws_instance:critical[/cyan])"
+            )
+            return None
+
     # Integer keys
     if key == "cloudtrail_lookback_days":
         try:

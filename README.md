@@ -1,6 +1,6 @@
 # 🔍 drifty
 
-> Terraform drift intelligence — detect what changed, who changed it, how dangerous it is, and how to fix it.
+> Detect Terraform drift, attribute the change, assess risk, and fix it fast.
 
 [![PyPI version](https://badge.fury.io/py/drifty.svg)](https://pypi.org/project/drifty/)
 [![Python](https://img.shields.io/pypi/pyversions/drifty)](https://pypi.org/project/drifty/)
@@ -15,13 +15,13 @@ pip install drifty
 
 ## The Problem
 
-`terraform plan` tells you **what** drifted. It does not tell you **who** changed it, **how dangerous** the change is, or **what to do** about it.
+`terraform plan` tells you **what** drifted. It does not provide native attribution for **who** changed it, how risky the change is, or the best way to respond.
 
-Manual changes in the AWS console during incidents, auto-scaling events, and ad-hoc CLI commands silently diverge your infrastructure from Terraform state. By the time the drift is noticed, it is often unclear whether it came from a teammate, automation, or a security issue.
+Manual changes in the AWS console during incidents, auto-scaling events, and ad-hoc CLI commands can silently diverge infrastructure from Terraform state. By the time the drift is noticed, it is often unclear whether it came from a teammate, approved automation, or a potential security issue.
 
-Enterprise platforms like Spacelift and HCP Terraform Cloud can detect drift on a schedule, but they are full IaC platforms that are heavier, more expensive, and still do not provide attribution or severity intelligence.
+Platforms such as Spacelift and HCP Terraform can detect drift on a schedule, but they are broader IaC platforms that are heavier, more expensive, and do not natively focus on attribution or severity scoring.
 
-**drifty fills this gap.**
+**drifty fills this gap.** It gives teams a lightweight way to detect drift, enrich it with CloudTrail context, prioritize what matters, and act quickly.
 
 ---
 
@@ -42,19 +42,19 @@ Scanning workspace: ./infra  |  2026-06-05 14:00 UTC
    Who:      arn:aws:iam::123456789:user/john.doe
    When:     2026-06-03 14:22:11 UTC
    Action:   ModifySecurityGroupRules
-   Fix:      terraform import aws_security_group.main sg-0abc1234
+   Suggested action: reconcile state with Terraform import or revert with terraform apply
 
 🟠 HIGH  aws_instance.api_server  (i-0def5678)
    Changed:  instance_type  →  t3.large  (was: t3.medium)
    Who:      arn:aws:iam::123456789:role/ops-automation
    When:     2026-06-02 09:15:44 UTC
    Action:   ModifyInstanceAttribute
-   Fix:      terraform import aws_instance.api_server i-0def5678
+   Suggested action: reconcile state with Terraform import or revert with terraform apply
 
 🟢 LOW  aws_s3_bucket.assets  (assets-bucket-prod)
    Changed:  tags.LastModified  →  "2026-06-01"  (was: "2026-05-15")
    Who:      attribution unavailable (event outside 90-day CloudTrail window)
-   Fix:      Add tag to Terraform config or run terraform apply to reconcile
+   Suggested action: add tag to Terraform config or run terraform apply to reconcile
 
 ──────────────────────────────────────────────────────────────
 Run `drifty report --format markdown` to export this as a report.
@@ -64,7 +64,7 @@ Run `drifty report --format markdown` to export this as a report.
 
 ## Install
 
-**Requirements:** Python 3.10+, AWS credentials configured, Terraform available in your workspace
+**Requirements:** Python 3.10+, AWS credentials configured, and Terraform available in your workspace.
 
 ```bash
 pip install drifty
@@ -122,6 +122,14 @@ drifty ignore --list
 # 15. Remove an ignore entry
 drifty ignore aws_instance.api_server --remove
 ```
+
+---
+
+## Why It Stands Out
+
+`drifty` is designed for engineers who want drift detection without adopting a full platform. It works locally, fits naturally into CI, and adds attribution, severity, reporting, and notifications on top of Terraform's existing workflow.
+
+A particularly strong workflow is continuous monitoring with Slack alerts and optional CloudTrail attribution. That combination helps teams catch new drift quickly without creating repeated noise.
 
 ---
 
@@ -264,9 +272,7 @@ Example GitHub Actions step:
     PR_NUMBER: ${{ github.event.pull_request.number }}
 ```
 
----
-
-## `drifty history`
+### `drifty history`
 
 Shows drift trends from previous scans. Findings are automatically persisted to `.drifty/history.json` after every `drifty scan`.
 
@@ -284,9 +290,7 @@ drifty history --last 30 --severity high
 drifty history --output json
 ```
 
----
-
-## `drifty ignore`
+### `drifty ignore`
 
 Manages the ignore list for suppressing known or accepted drift. Suppressed resources still appear in scan output under a dimmed **Suppressed** label rather than being silently hidden.
 
@@ -335,14 +339,14 @@ severity_overrides:
 
 ---
 
-## drifty vs. alternatives
+## drifty vs. Alternatives
 
-| Feature | `terraform plan` | Spacelift / HCP TF | **drifty** |
+| Feature | `terraform plan` | Spacelift / HCP Terraform | **drifty** |
 |---|---|---|---|
 | Detects drift | ✅ | ✅ | ✅ |
-| Who caused it | ❌ | ❌ | ✅ CloudTrail |
+| Native attribution | ❌ | ❌ | ✅ CloudTrail |
 | Severity score | ❌ | ❌ | ✅ |
-| Remediation hint | ❌ | ❌ | ✅ |
+| Remediation guidance | ❌ | ❌ | ✅ |
 | JSON / Markdown output | ❌ | Partial | ✅ |
 | Works locally / in CI | ✅ | ❌ SaaS only | ✅ |
 | Cost | Free | $$$ | Free |
@@ -371,18 +375,27 @@ severity_overrides: {}
 
 ## Release
 
-drifty is packaged with Poetry and published to PyPI.
+drifty is packaged with Poetry, built from `pyproject.toml`, and published to PyPI. Poetry requires a package version to be defined in `pyproject.toml`, either in `project.version` or `tool.poetry.version`, and that version is the source of truth for the built package metadata.
+
+The recommended GitHub Actions pattern is to build distributions in one job, store them as artifacts, and publish them from a separate PyPI job that runs on tag pushes with trusted publishing enabled. For repeatable releases, use the tag as the release trigger, keep the package version aligned with `pyproject.toml`, and configure the PyPI publish step to skip already-uploaded files on reruns.
+
+Tagged releases can also create or update a GitHub Release with changelog-derived notes while PyPI publication is handled separately in the publish job.
+
+Example local development flow:
 
 ```bash
 poetry version patch
 poetry build
-poetry publish
+poetry publish -r testpypi
 ```
 
-Use TestPyPI for a dry run before publishing to production:
+Example GitHub Actions publish step:
 
-```bash
-poetry publish -r testpypi
+```yaml
+- name: Publish distribution 📦 to PyPI
+  uses: pypa/gh-action-pypi-publish@release/v1
+  with:
+    skip-existing: true
 ```
 
 ---

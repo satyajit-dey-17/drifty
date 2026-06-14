@@ -45,6 +45,13 @@ def render(
         _render_json(findings)
     elif output_format == "markdown":
         _render_markdown(findings, workspace)
+    elif output_format == "table":
+        _render_table(
+            findings,
+            workspace,
+            suppressed=suppressed or [],
+            with_attribution=with_attribution,
+        )
     else:
         _render_terminal(
             findings, workspace, suppressed=suppressed or [], with_attribution=with_attribution
@@ -134,6 +141,101 @@ def _render_terminal(
     console.print(
         "[dim]Run [bold]drifty report --format markdown[/bold] " "to export this as a report.[/dim]"
     )
+    console.print()
+
+
+def _render_table(
+    findings: list[DriftFinding],
+    workspace: Path,
+    suppressed: list[DriftFinding] | None = None,
+    with_attribution: bool = False,
+) -> None:
+    from rich.table import Table
+
+    console.print()
+    console.print("[bold cyan]🔍 drifty — Terraform Drift Intelligence[/bold cyan]")
+    console.print(
+        f"Scanning workspace: [bold]{workspace}[/bold]  |  "
+        f"[dim]{datetime.now(tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}[/dim]"
+    )
+    console.print()
+
+    if not findings:
+        console.print(
+            Panel(
+                "[bold green]✓ No drift detected.[/bold green]\n"
+                "[dim]Your infrastructure matches your Terraform state.[/dim]",
+                border_style="green",
+            )
+        )
+        return
+
+    sorted_findings = sorted(findings, key=lambda f: SEVERITY_ORDER.get(f.severity, 3))
+
+    counts = _count_by_severity(sorted_findings)
+    n = len(sorted_findings)
+    summary_parts = [f"[bold]{n} drift{'s' if n != 1 else ''} detected[/bold]"]
+    if counts.get("critical"):
+        summary_parts.append(f"[bold red]{counts['critical']} Critical[/bold red]")
+    if counts.get("high"):
+        summary_parts.append(f"[bold orange1]{counts['high']} High[/bold orange1]")
+    if counts.get("medium"):
+        summary_parts.append(f"[bold yellow]{counts['medium']} Medium[/bold yellow]")
+    if counts.get("low"):
+        summary_parts.append(f"[bold green]{counts['low']} Low[/bold green]")
+
+    console.print(
+        Panel(
+            "  •  ".join(summary_parts),
+            border_style="cyan",
+            padding=(0, 2),
+        )
+    )
+    console.print()
+
+    table = Table(show_header=True, header_style="bold", expand=True)
+    table.add_column("Severity", style="bold", no_wrap=True)
+    table.add_column("Resource", style="cyan", no_wrap=True)
+    table.add_column("Resource ID", style="dim")
+    table.add_column("Changed", style="white")
+    if with_attribution:
+        table.add_column("Who", style="yellow")
+        table.add_column("Action", style="magenta")
+    table.add_column("Fix", style="green")
+
+    for finding in sorted_findings:
+        changed = "; ".join(
+            f"{c.get('attribute', '')}: {_format_change(c.get('attribute', ''), c.get('after'))}"
+            for c in finding.changed_attributes[:2]
+        )
+        if len(finding.changed_attributes) > 2:
+            changed += f" (+{len(finding.changed_attributes) - 2} more)"
+
+        row = [
+            f"{severity_emoji(finding.severity)} {finding.severity.upper()}",
+            f"{finding.resource_type}.{finding.resource_name}",
+            finding.resource_id,
+            changed or "—",
+        ]
+
+        if with_attribution:
+            row.extend(
+                [
+                    finding.attributed_to or "—",
+                    finding.attributed_action or "—",
+                ]
+            )
+
+        row.append(finding.remediation_hint or "—")
+        table.add_row(*row)
+
+    console.print(table)
+
+    suppressed = suppressed or []
+    if suppressed:
+        console.print()
+        console.print(f"[dim]Suppressed: {len(suppressed)} finding(s)[/dim]")
+
     console.print()
 
 

@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,13 +37,21 @@ jobs:
 
       - name: Verify version matches release tag
         if: github.event_name == 'push'
+        shell: bash
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
-          PYPROJECT_VERSION=$(poetry version --short)
+          PYPROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -n 1)
+
+          if [ -z "$PYPROJECT_VERSION" ]; then
+            echo "❌ Could not read version from pyproject.toml"
+            exit 1
+          fi
+
           if [ "$TAG" != "$PYPROJECT_VERSION" ]; then
             echo "❌ Tag v$TAG does not match pyproject.toml version $PYPROJECT_VERSION"
             exit 1
           fi
+
           echo "✅ Version match confirmed: $PYPROJECT_VERSION"
 
       - name: Install dependencies
@@ -77,16 +87,24 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Extract changelog for this version
         id: changelog
+        shell: bash
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
-          # Extract the block between this version header and the next
+
           NOTES=$(awk "/^## \[${TAG}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
-          # Write to file to preserve newlines
-          echo "$NOTES" > release_notes.txt
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+          if [ -z "$NOTES" ]; then
+            echo "❌ No changelog entry found for version ${TAG} in CHANGELOG.md"
+            exit 1
+          fi
+
+          printf "%s\n" "$NOTES" > release_notes.txt
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

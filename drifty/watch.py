@@ -152,7 +152,7 @@ def _run_cycle(*, workspace, profile, attribute, threshold, notifier, run_scan) 
 
     ts = datetime.now().strftime("%H:%M:%S")
 
-    state = load_state()
+    state = load_state(workspace)
 
     try:
         findings, suppressed = run_scan(
@@ -166,7 +166,7 @@ def _run_cycle(*, workspace, profile, attribute, threshold, notifier, run_scan) 
         return
 
     new_drift = diff_findings(findings, state)
-    save_state(build_known_findings(findings))
+    save_state(build_known_findings(findings), workspace)
 
     if not new_drift:
         suppressed_note = f" [dim]({len(suppressed)} suppressed)[/dim]" if suppressed else ""

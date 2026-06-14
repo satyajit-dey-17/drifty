@@ -46,11 +46,6 @@ def another_finding():
     )
 
 
-# ---------------------------------------------------------------------------
-# _hash_finding
-# ---------------------------------------------------------------------------
-
-
 def test_hash_is_deterministic(finding):
     assert _hash_finding(finding) == _hash_finding(finding)
 
@@ -68,19 +63,12 @@ def test_hash_ignores_attribution_fields(finding):
     assert _hash_finding(finding) == h1
 
 
-# ---------------------------------------------------------------------------
-# load_state
-# ---------------------------------------------------------------------------
-
-
-def test_load_state_returns_empty_default_when_no_file(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    state = load_state()
+def test_load_state_returns_empty_default_when_no_file(tmp_path):
+    state = load_state(tmp_path)
     assert state == {"last_scan": None, "known_findings": {}}
 
 
-def test_load_state_reads_existing_file(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
+def test_load_state_reads_existing_file(tmp_path):
     state_dir = tmp_path / ".drifty"
     state_dir.mkdir()
     state_file = state_dir / "state.json"
@@ -93,18 +81,12 @@ def test_load_state_reads_existing_file(tmp_path, monkeypatch):
         )
     )
 
-    state = load_state()
+    state = load_state(tmp_path)
     assert state["known_findings"]["aws_security_group.main"] == "abc123"
 
 
-# ---------------------------------------------------------------------------
-# save_state
-# ---------------------------------------------------------------------------
-
-
-def test_save_state_creates_dir_and_file(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    save_state({"aws_security_group.main": "abc123"})
+def test_save_state_creates_dir_and_file(tmp_path):
+    save_state({"aws_security_group.main": "abc123"}, tmp_path)
 
     state_file = tmp_path / ".drifty" / "state.json"
     assert state_file.exists()
@@ -113,19 +95,13 @@ def test_save_state_creates_dir_and_file(tmp_path, monkeypatch):
     assert data["last_scan"] is not None
 
 
-def test_save_state_overwrites_existing(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    save_state({"aws_security_group.main": "old_hash"})
-    save_state({"aws_security_group.main": "new_hash"})
+def test_save_state_overwrites_existing(tmp_path):
+    save_state({"aws_security_group.main": "old_hash"}, tmp_path)
+    save_state({"aws_security_group.main": "new_hash"}, tmp_path)
 
     state_file = tmp_path / ".drifty" / "state.json"
     data = json.loads(state_file.read_text())
     assert data["known_findings"]["aws_security_group.main"] == "new_hash"
-
-
-# ---------------------------------------------------------------------------
-# diff_findings
-# ---------------------------------------------------------------------------
 
 
 def test_diff_returns_all_when_state_empty(finding, another_finding):
@@ -155,11 +131,6 @@ def test_diff_detects_new_resource(finding, another_finding):
     result = diff_findings([finding, another_finding], state)
     assert len(result) == 1
     assert result[0].resource_name == "api_server"
-
-
-# ---------------------------------------------------------------------------
-# build_known_findings
-# ---------------------------------------------------------------------------
 
 
 def test_build_known_findings_keys(finding, another_finding):

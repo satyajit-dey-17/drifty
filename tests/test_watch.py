@@ -174,3 +174,26 @@ def test_run_cycle_saves_state_after_scan(tmp_path, monkeypatch, critical_findin
 
     state_file = tmp_path / ".drifty" / "state.json"
     assert state_file.exists()
+
+
+def test_run_cycle_saves_state_in_workspace_not_cwd(tmp_path, monkeypatch, critical_finding):
+    other_dir = tmp_path / "other-cwd"
+    other_dir.mkdir()
+    monkeypatch.chdir(other_dir)
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    mock_scan = MagicMock(return_value=([critical_finding], []))
+
+    _run_cycle(
+        workspace=workspace,
+        profile="default",
+        attribute=False,
+        threshold="low",
+        notifier=None,
+        run_scan=mock_scan,
+    )
+
+    assert (workspace / ".drifty" / "state.json").exists()
+    assert not (other_dir / ".drifty" / "state.json").exists()
