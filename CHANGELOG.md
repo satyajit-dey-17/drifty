@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
 
+
+## [0.6.5] - 2026-06-13
+
+### Fixed
+- Severity overrides now apply **after** tag-only downgrade, so tag-only drift for `aws_instance`, `aws_s3_bucket`, `aws_lambda_function`, etc. is correctly LOW instead of overridden to HIGH/CRITICAL.
+- Tag-only drift classification: tag changes on EC2, S3, and Lambda are now properly classified as LOW severity.
+- CloudTrail attribution for tag-only drift now prefers `CreateTags`/`DeleteTags` instead of `RunInstances` or other unrelated EC2 events.
+- `--output table` silently ignored: table output now works correctly with `--attribute`.
+- CLI help text missing `medium` severity option: added `medium` to the help description.
+- `state.py` ignoring `--workspace` flag: now correctly uses the provided workspace.
+- CLI storing string instead of dict for `severity_overrides` in config: fixed to store proper YAML map.
+- Lambda ARN handling with wildcards in severity and attribution: improved ARN parsing and matching.
+
+### Changed
+- Reduced CloudTrail lookup candidates from ~20 to ~3 per finding, significantly improving scan performance (target ~8–9s instead of ~15s).
+- Added `CreateTags` and `DeleteTags` to EC2 and security group event hints in `RESOURCE_HINTS`.
+- Improved remediation hints for tag-only drift to suggest updating Terraform tags or removing tags in AWS instead of generic `terraform import`.
+
 ## [0.6.4] - 2026-06-09
 
 ### Fixed
