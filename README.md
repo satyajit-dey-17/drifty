@@ -1,12 +1,11 @@
-
 # 🔍 drifty
 
 > Detect Terraform drift, attribute the change, assess risk, and fix it fast.
 
-[![PyPI version](https://badge.fury.io/py/drifty.svg)](https://pypi.org/project/drifty/)
-[![Python](https://img.shields.io/pypi/pyversions/drifty)](https://pypi.org/project/drifty/)
-[![CI](https://github.com/satyajit-dey-17/drifty/actions/workflows/test.yml/badge.svg)](https://github.com/satyajit-dey-17/drifty/actions/workflows/test.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[
+[
+[
+[
 
 <img width="1376" height="768" alt="drifty_img" src="https://github.com/user-attachments/assets/793959dd-f5c2-4d4c-b51c-c2b958ce36b1" />
 
@@ -15,7 +14,7 @@
 pip install drifty
 ```
 
----
+***
 
 ## The Problem
 
@@ -27,7 +26,7 @@ Platforms such as Spacelift and HCP Terraform can detect drift on a schedule, bu
 
 **drifty fills this gap.** It gives teams a lightweight way to detect drift, enrich it with CloudTrail context, prioritize what matters, and act quickly.
 
----
+***
 
 ## Demo
 
@@ -64,7 +63,7 @@ Scanning workspace: ./infra  |  2026-06-05 14:00 UTC
 Run `drifty report --format markdown` to export this as a report.
 ```
 
----
+***
 
 ## Install
 
@@ -74,7 +73,7 @@ Run `drifty report --format markdown` to export this as a report.
 pip install drifty
 ```
 
----
+***
 
 ## Quick Start
 
@@ -127,7 +126,52 @@ drifty ignore --list
 drifty ignore aws_instance.api_server --remove
 ```
 
----
+***
+
+## 🤖 MCP Server (AI Tool Integration)
+
+Drifty exposes an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server so AI assistants can call drift detection directly as a structured tool — no scripting or API wrappers needed.
+
+**Install with MCP support:**
+
+```bash
+pip install "drifty[mcp]"
+```
+
+**Test instantly — no subscription needed:**
+
+```bash
+npx @modelcontextprotocol/inspector drifty-mcp
+```
+
+Open `http://localhost:5173` to see and invoke all available tools interactively.
+
+**Available MCP tools:**
+
+| Tool | Description |
+|---|---|
+| `detect_drift` | Full drift report — changed attributes, severity, and remediation hints |
+| `score_drift` | Fast severity summary — resource addresses and counts by level |
+
+**Cursor / Claude Desktop config (`~/.cursor/mcp.json` or `claude_desktop_config.json`):**
+
+```json
+{
+  "mcpServers": {
+    "drifty": {
+      "command": "drifty-mcp"
+    }
+  }
+}
+```
+
+**Smoke test without any client (raw Python):**
+
+```bash
+python examples/mcp_client_test.py /path/to/terraform/workspace
+```
+
+***
 
 ## Why It Stands Out
 
@@ -135,7 +179,7 @@ drifty ignore aws_instance.api_server --remove
 
 A particularly strong workflow is continuous monitoring with Slack alerts and optional CloudTrail attribution. That combination helps teams catch new drift quickly without creating repeated noise.
 
----
+***
 
 ## How It Works
 
@@ -162,7 +206,7 @@ drifty scan
             markdown → report for docs and collaboration
 ```
 
----
+***
 
 ## Commands
 
@@ -316,7 +360,7 @@ drifty ignore --list
 
 Ignore entries are persisted to `.drifty/ignore.yaml` with timestamp and author.
 
----
+***
 
 ## Severity Rules
 
@@ -341,7 +385,7 @@ severity_overrides:
   aws_cloudwatch_metric_alarm: low
 ```
 
----
+***
 
 ## drifty vs. Alternatives
 
@@ -360,8 +404,9 @@ severity_overrides:
 | GitHub PR comment | ❌ | ❌ | ✅ |
 | Drift history / trends | ❌ | ❌ | ✅ |
 | Ignore / suppress drift | ❌ | ❌ | ✅ |
+| **MCP / AI tool integration** | ❌ | ❌ | ✅ |
 
----
+***
 
 ## Configuration Reference
 
@@ -375,7 +420,7 @@ cloudtrail_lookback_days: 90
 severity_overrides: {}
 ```
 
----
+***
 
 ## Release
 
@@ -402,7 +447,7 @@ Example GitHub Actions publish step:
     skip-existing: true
 ```
 
----
+***
 
 ## Roadmap
 
@@ -411,9 +456,10 @@ Example GitHub Actions publish step:
 - [x] GitHub PR comment integration
 - [x] Drift history
 - [x] Ignore / suppress drift
+- [x] MCP server for AI tool integration
 - [ ] Azure and GCP provider support
 
----
+***
 
 ## Contributing
 
@@ -428,7 +474,7 @@ poetry run black drifty/
 
 Please open an issue before submitting a large PR. See [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) for bug and feature templates.
 
----
+***
 
 ## License
 

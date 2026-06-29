@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "drifty"
-version = "0.6.5"
+version = "0.7.0"
 description = "Terraform drift intelligence: detect, attribute, score, and fix IaC drift"
 readme = "README.md"
 license = { text = "MIT" }
@@ -39,6 +39,7 @@ Repository = "https://github.com/satyajit-dey-17/drifty"
 
 [project.scripts]
 drifty = "drifty.cli:app"
+drifty-mcp = "drifty.mcp_server:main"
 
 [tool.poetry]
 packages = [{ include = "drifty" }]
@@ -69,3 +70,6 @@ addopts = "-v --tb=short"
 filterwarnings = [
     "ignore::DeprecationWarning:typer",
 ]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0"]

@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
 
+
+## [0.7.0] - 2026-06-28
+
+### Added
+- `drifty/mcp_server.py` — MCP (Model Context Protocol) server exposing Drifty as a callable tool for AI assistants
+- `drifty-mcp` CLI entrypoint registered in `pyproject.toml` — compatible with Cursor, Claude Desktop, and any stdio MCP client
+- Two MCP tools:
+  - `detect_drift(working_dir, aws_profile, severity_filter)` — full drift report with changed attributes and remediation hints
+  - `score_drift(working_dir, aws_profile)` — fast severity summary with per-resource breakdown
+- `mcp` optional dependency group: `pip install "drifty[mcp]"` — no impact on existing installs
+- `examples/mcp_client_test.py` — raw JSON-RPC smoke test client for local MCP server verification (no subscription needed)
+
+
 ## [0.6.4] - 2026-06-09
 
 ### Fixed
