@@ -32,10 +32,14 @@ def main():
 
     # Call detect_drift
     print(f"\nCalling detect_drift on: {working_dir}\n")
-    result = send(proc, "tools/call", {
-        "name": "detect_drift",
-        "arguments": {"working_dir": working_dir},
-    })
+    result = send(
+        proc,
+        "tools/call",
+        {
+            "name": "detect_drift",
+            "arguments": {"working_dir": working_dir},
+        },
+    )
     print(json.dumps(result.get("result"), indent=2))
     proc.terminate()
 
