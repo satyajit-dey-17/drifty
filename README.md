@@ -2,10 +2,11 @@
 
 > Detect Terraform drift, attribute the change, assess risk, and fix it fast.
 
-[
-[
-[
-[
+
+[![PyPI version](https://badge.fury.io/py/drifty.svg)](https://pypi.org/project/drifty/)
+[![Python](https://img.shields.io/pypi/pyversions/drifty)](https://pypi.org/project/drifty/)
+[![CI](https://github.com/satyajit-dey-17/drifty/actions/workflows/test.yml/badge.svg)](https://github.com/satyajit-dey-17/drifty/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <img width="1376" height="768" alt="drifty_img" src="https://github.com/user-attachments/assets/793959dd-f5c2-4d4c-b51c-c2b958ce36b1" />
 
