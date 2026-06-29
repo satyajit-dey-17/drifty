@@ -4,8 +4,6 @@ All notable changes to drifty will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
-
-
 ## [0.7.0] - 2026-06-28
 
 ### Added
@@ -17,14 +15,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `mcp` optional dependency group: `pip install "drifty[mcp]"` — no impact on existing installs
 - `examples/mcp_client_test.py` — raw JSON-RPC smoke test client for local MCP server verification (no subscription needed)
 
-
 ## [0.6.4] - 2026-06-09
 
 ### Fixed
 - Updated the GitHub PR report workflow to run on `pull_request` events and manual dispatch, with lint and formatting checks before posting the drift report.
 - PR comments are now updated in place instead of creating duplicate comments on every run.
 - Added Ruff and Black validation to the PR report workflow so formatting and lint errors fail early before comment posting.
-
 
 ## [0.6.2] - 2026-06-08
 
@@ -97,6 +93,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ---
 
 ## [0.1.0] - 2026-06-04
+
 ### Added
 - Initial release
 - `drifty scan` — detect Terraform drift via `terraform plan -refresh-only -json`
@@ -105,5 +102,3 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Terminal (Rich), JSON, and Markdown output modes
 - `drifty init`, `drifty config show/set` commands
 - `drifty report` for standalone markdown export
-
-
