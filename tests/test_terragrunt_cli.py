@@ -5,6 +5,7 @@ Uses typer.testing.CliRunner — no real binaries required.
 
 from __future__ import annotations
 
+import re
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -231,18 +232,26 @@ class TestJsonOutput:
 # ---------------------------------------------------------------------------
 
 
+def _strip_ansi(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
 class TestRegressionExistingCommands:
     def test_scan_help_still_works(self):
         r = runner.invoke(app, ["scan", "--help"])
+        output = _strip_ansi(r.output)
         assert r.exit_code == 0
-        assert "--workspace" in r.output
+        assert "--workspace" in output
+        assert "--attribute" in output
 
     def test_terragrunt_does_not_add_flags_to_scan(self):
         r = runner.invoke(app, ["scan", "--help"])
-        assert "--root" not in r.output
-        assert "--discover-only" not in r.output
+        output = _strip_ansi(r.output)
+        assert "--root" not in output
+        assert "--discover-only" not in output
 
     def test_drifty_help_shows_terragrunt(self):
         r = runner.invoke(app, ["--help"])
+        output = _strip_ansi(r.output)
         assert r.exit_code == 0
-        assert "terragrunt" in r.output
+        assert "terragrunt" in output
