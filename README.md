@@ -363,6 +363,74 @@ Ignore entries are persisted to `.drifty/ignore.yaml` with timestamp and author.
 
 ***
 
+### `drifty terragrunt`
+
+Scans an entire Terragrunt monorepo for drift across all units in one command. Requires `terragrunt` and `terraform` on `PATH`.
+
+```bash
+# Discover all runnable units (no terraform execution)
+drifty terragrunt discover --root ./infra
+
+# Scan all units for drift
+drifty terragrunt scan --root ./infra
+
+# High-severity only with CloudTrail attribution, JSON output for CI
+drifty terragrunt scan \
+  --root ./infra \
+  --min-severity high \
+  --attribute \
+  --output json
+```
+
+**`drifty terragrunt discover` output:**
+
+```text
+$ drifty terragrunt discover --root tests/fixtures/terragrunt_integration
+
+┌─────────────────────────────────────────────────────┐
+│  Terragrunt Units — tests/fixtures/terragrunt_integration  │
+├──────────────────────┬─────────┬──────────┤
+│ Unit                 │ Env     │ Runnable │
+├──────────────────────┼─────────┼──────────┤
+│ envs/prod/app        │ prod    │ ✓        │
+│ envs/prod/db         │ prod    │ ✓        │
+│ envs/staging/app     │ staging │ ✓        │
+└──────────────────────┴─────────┴──────────┘
+3 runnable units found.
+```
+
+**`drifty terragrunt scan` output (clean run):**
+
+```text
+$ drifty terragrunt scan --root tests/fixtures/terragrunt_integration
+
+🔍 drifty — Terragrunt Drift Intelligence
+Root: tests/fixtures/terragrunt_integration  |  2026-07-13T13:42:04Z
+
+✓ envs/prod/app      1.0s   No drift detected.
+✓ envs/prod/db       1.6s   No drift detected.
+✓ envs/staging/app   1.6s   No drift detected.
+
+╭────────────────────── Terragrunt Scan Summary ───────────────────────╮
+│ 3 units  |  3 clean  |  0 drifted  |  0 failed                       │
+╰──────────────────────────────────────────────────────────────────────╯
+```
+
+**Exit codes:** `0` clean · `1` drift found · `2` operational failure · `3` partial failure
+
+**Key flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--root` / `-r` | `.` | Root directory to discover units from |
+| `--output` / `-o` | `terminal` | `terminal` or `json` |
+| `--min-severity` / `-s` | all | Minimum severity: `critical` `high` `medium` `low` |
+| `--attribute` / `-a` | off | Enable CloudTrail attribution per finding |
+| `--discover-only` | off | Print units and exit, no terraform execution |
+| `--fail-fast` | off | Stop after the first unit failure |
+| `--unit-timeout` | `300` | Per-unit subprocess timeout in seconds |
+
+See [`docs/terragrunt.md`](docs/terragrunt.md) for full documentation, JSON schema, and CI/CD integration examples.
 ## Severity Rules
 
 | Resource Type | Severity |
@@ -406,6 +474,7 @@ severity_overrides:
 | Drift history / trends | ❌ | ❌ | ✅ |
 | Ignore / suppress drift | ❌ | ❌ | ✅ |
 | **MCP / AI tool integration** | ❌ | ❌ | ✅ |
+| **Terragrunt monorepo support** | ❌ | ❌ | ✅ |
 
 ***
 
@@ -458,6 +527,8 @@ Example GitHub Actions publish step:
 - [x] Drift history
 - [x] Ignore / suppress drift
 - [x] MCP server for AI tool integration
+- [x] Terragrunt monorepo drift detection
+- [ ] Dependency graph and blast-radius analysis (Phase 2)
 - [ ] Azure and GCP provider support
 
 ***

@@ -17,9 +17,10 @@ from drifty.config import (
     set_config_value,
     show_config,
 )
-from drifty.github import post_pr_comment  # add this
+from drifty.github import post_pr_comment
 from drifty.history import load_history, most_drifted_resources
 from drifty.ignore import add_ignore, load_ignores, remove_ignore
+from drifty.terragrunt.cli import terragrunt_app
 from drifty.watch import cmd_watch
 
 app = typer.Typer(
@@ -36,6 +37,8 @@ config_app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(config_app, name="config")
+
+app.add_typer(terragrunt_app, name="terragrunt")
 
 app.command("watch")(cmd_watch)
 

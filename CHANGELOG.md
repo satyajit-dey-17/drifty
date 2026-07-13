@@ -4,6 +4,29 @@ All notable changes to drifty will be documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/).
 
+
+## [0.8.0] - 2026-07-13
+
+### Added
+- `drifty terragrunt` sub-command group for Terragrunt-aware drift detection
+- `drifty terragrunt discover` — recursively discovers runnable Terragrunt units
+  from a root directory; respects `.terragrunt-cache`, `.git`, `.terraform`,
+  `node_modules`, and configurable extra exclusions
+- `drifty terragrunt scan` — scans all discovered units sequentially using the
+  existing drift scoring and reporting pipeline
+  - Flags: `--root`, `--output`, `--min-severity`, `--profile`, `--attribute`,
+    `--exclude`, `--unit-timeout`, `--discover-only`, `--fail-fast`
+- `drifty/terragrunt/` package: `models.py`, `discovery.py`, `runner.py`,
+  `reporter.py`, `cli.py`
+- Formalized exit code contract:
+  `0` clean · `1` drift found · `2` operational failure · `3` partial failure
+- `tests/fixtures/terragrunt_monorepo/` — fixture directory tree for unit tests
+- `docs/terragrunt.md` — full feature documentation and design rationale
+- `examples/terragrunt_scan.sh` — CI-ready example script
+- Phase 2 extension points: `TerragruntUnit.dependencies` and
+  `TerragruntScanReport.dependency_graph` fields (both default to empty;
+  reserved for upcoming blast-radius analysis)
+
 ## [0.7.0] - 2026-06-28
 
 ### Added
